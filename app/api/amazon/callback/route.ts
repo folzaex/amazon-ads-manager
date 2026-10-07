@@ -53,8 +53,9 @@ export async function GET(req: NextRequest) {
 
   try {
     await saveAmazonConnections(token.refresh_token, profiles);
-  } catch {
-    return response("Amazon wurde autorisiert, aber die sichere Speicherung in Supabase ist fehlgeschlagen.");
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unbekannter Supabase-Fehler.";
+    return response(`Amazon wurde autorisiert, aber die sichere Speicherung in Supabase ist fehlgeschlagen. ${detail}`);
   }
 
   return response(`Die Amazon-Ads-Verbindung wurde erfolgreich gespeichert. ${profiles.length} Profil(e) gefunden.`, true);
