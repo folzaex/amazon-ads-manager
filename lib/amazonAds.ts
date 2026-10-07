@@ -116,7 +116,7 @@ export async function createSponsoredProductsCampaignReport(
           "purchases1d","purchases7d","purchases14d",
           "sales1d","sales7d","sales14d",
           "unitsSoldClicks14d","campaignStatus","campaignName",
-          "campaignBudgetCurrencyCode","date","startDate","endDate"
+          "campaignBudgetCurrencyCode","startDate","endDate"
         ],
         reportTypeId: "spCampaigns",
         timeUnit: "SUMMARY",
