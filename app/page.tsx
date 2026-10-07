@@ -23,7 +23,6 @@ export default async function Home() {
         <div className="status warn"><strong>Amazon Ads Verbindung</strong><br/>Noch nicht verbunden.</div>
       )}
       <a className="btn" href="/api/amazon/authorize">{profiles.length ? "Amazon Ads erneut verbinden" : "Mit Amazon Ads verbinden"}</a>
-      <p className="small">Geheime Zugangsdaten und Amazon-Refresh-Tokens werden ausschließlich serverseitig verarbeitet.</p>
     </div>
   </main>;
 }
