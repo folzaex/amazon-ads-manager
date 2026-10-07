@@ -120,19 +120,15 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         campaignName: String(row.campaignName ?? "Ohne Kampagne"),
         cost: 0,
         clicks: 0,
-        purchases14d: 0,
-        sales14d: 0,
-        acos: 0
+        purchases14d: 0
       };
       current.cost += Number(row.cost || 0);
       current.clicks += Number(row.clicks || 0);
       current.purchases14d += Number(row.purchases14d || 0);
-      current.sales14d += Number(row.sales14d || 0);
       byKeyword.set(id,current);
     }
 
     return [...byKeyword.values()]
-      .map(k => ({...k, acos: k.sales14d > 0 ? (k.cost / k.sales14d) * 100 : 0}))
       .sort((a,b) => b.cost - a.cost)
       .slice(0,3);
   }
@@ -327,14 +323,16 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       </div>
       {topKeywords.length > 0 ? (
         <div className="keyword-table-wrap">
-          <table className="keyword-table">
-            <thead><tr><th>Keyword</th><th>Kampagne</th><th>Kosten</th><th>Klicks</th><th>Bestellungen</th><th>ACOS</th></tr></thead>
-            <tbody>
-              {topKeywords.map((k,i)=><tr key={`${k.campaignName}-${k.keyword}-${i}`}>
-                <td>{k.keyword}</td><td>{k.campaignName}</td><td>{k.cost.toFixed(2)} €</td><td>{k.clicks}</td><td>{k.purchases14d}</td><td>{k.acos.toFixed(1)} %</td>
-              </tr>)}
-            </tbody>
-          </table>
+          <div className="keyword-header">
+            <div>Keyword</div><div>Kampagne</div><div>Kosten</div><div>Klicks</div><div>Bestellungen</div>
+          </div>
+          {topKeywords.map((k,i)=><div className="keyword-row" key={`${k.campaignName}-${k.keyword}-${i}`}>
+            <div className="keyword-cell keyword-name" data-label="Keyword">{k.keyword}</div>
+            <div className="keyword-cell keyword-campaign" data-label="Kampagne">{k.campaignName}</div>
+            <div className="keyword-cell keyword-number" data-label="Kosten">{k.cost.toFixed(2)} €</div>
+            <div className="keyword-cell keyword-number" data-label="Klicks">{k.clicks}</div>
+            <div className="keyword-cell keyword-number" data-label="Bestellungen">{k.purchases14d}</div>
+          </div>)}
         </div>
       ) : !keywordLoading ? <div className="keyword-empty">Keine Keyword-Daten für den ausgewählten Zeitraum.</div> : null}
     </div>
