@@ -6,7 +6,7 @@ function config() {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("Supabase Server-Zugangsdaten fehlen.");
   }
-  return { base: SUPABASE_URL.replace(/\/$/, ""), key: SUPABASE_SERVICE_ROLE_KEY };
+  return { base: SUPABASE_URL.replace(/\/$/, "").trim(), key: SUPABASE_SERVICE_ROLE_KEY.trim() };
 }
 
 function headers(extra: Record<string, string> = {}) {
@@ -25,6 +25,16 @@ async function explain(res: Response) {
   const body = await res.text().catch(() => "");
   const detail = body.replace(/\s+/g, " ").trim().slice(0, 500);
   return detail ? `HTTP ${res.status}: ${detail}` : `HTTP ${res.status}`;
+}
+
+async function supabaseFetch(url: string, init: RequestInit, stage: string) {
+  try {
+    return await fetch(url, init);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const cause = error instanceof Error && error.cause instanceof Error ? `; Ursache: ${error.cause.message}` : "";
+    throw new Error(`Supabase-Netzwerkfehler bei ${stage}: ${message}${cause}`);
+  }
 }
 
 export type AmazonConnection = {
@@ -46,11 +56,15 @@ export async function saveAmazonConnections(
 ) {
   const { base } = config();
 
-  const deleteRes = await fetch(`${base}/rest/v1/connections?id=not.is.null`, {
-    method: "DELETE",
-    headers: headers({ Prefer: "return=minimal" }),
-    cache: "no-store",
-  });
+  const deleteRes = await supabaseFetch(
+    `${base}/rest/v1/connections?id=not.is.null`,
+    {
+      method: "DELETE",
+      headers: headers({ Prefer: "return=minimal" }),
+      cache: "no-store",
+    },
+    "Löschen bestehender Verbindungen"
+  );
 
   if (!deleteRes.ok) {
     throw new Error(`Supabase konnte bestehende Verbindungen nicht löschen: ${await explain(deleteRes)}`);
@@ -63,12 +77,16 @@ export async function saveAmazonConnections(
     refresh_token: refreshToken,
   }));
 
-  const insertRes = await fetch(`${base}/rest/v1/connections`, {
-    method: "POST",
-    headers: headers({ Prefer: "return=minimal" }),
-    body: JSON.stringify(rows),
-    cache: "no-store",
-  });
+  const insertRes = await supabaseFetch(
+    `${base}/rest/v1/connections`,
+    {
+      method: "POST",
+      headers: headers({ Prefer: "return=minimal" }),
+      body: JSON.stringify(rows),
+      cache: "no-store",
+    },
+    "Speichern der Amazon-Verbindung"
+  );
 
   if (!insertRes.ok) {
     throw new Error(`Supabase konnte die Amazon-Verbindung nicht speichern: ${await explain(insertRes)}`);
@@ -77,9 +95,10 @@ export async function saveAmazonConnections(
 
 export async function getAmazonConnections(): Promise<AmazonConnection[]> {
   const { base } = config();
-  const res = await fetch(
+  const res = await supabaseFetch(
     `${base}/rest/v1/connections?select=id,amazon_profile_id,profile_name,country_code,created_at,updated_at&order=created_at.asc`,
-    { headers: headers(), cache: "no-store" }
+    { headers: headers(), cache: "no-store" },
+    "Laden der Amazon-Verbindungen"
   );
 
   if (!res.ok) {
