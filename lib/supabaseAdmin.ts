@@ -44,6 +44,7 @@ export type AmazonConnection = {
   country_code: string | null;
   created_at: string;
   updated_at: string;
+  refresh_token: string;
 };
 
 export async function saveAmazonConnections(
