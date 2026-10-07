@@ -93,10 +93,11 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     return {metrics:{...totals,acos,roas},campaignMetrics:Object.fromEntries(campaignRows.map(r=>[r.campaignId,r]))};
   }
 
-  function applyCachedDailyRows(rows:any[]) {
+  function applyCachedDailyRows(rows:any[], savedAt?: number) {
     const result = aggregateDailyRows(rows,dateRange);
     setMetrics(result.metrics);
     setCampaignMetrics(result.campaignMetrics);
+    if (savedAt) setPerformanceUpdatedAt(savedAt);
   }
 
   async function loadReport(force=false) {
@@ -109,7 +110,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       if (!force && cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed?.rows) && parsed.savedAt) {
-          applyCachedDailyRows(parsed.rows);
+          applyCachedDailyRows(parsed.rows, parsed.savedAt);
           if (Date.now() - parsed.savedAt < 10 * 60 * 1000) return;
         }
       }
@@ -130,7 +131,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         if (data.status === "COMPLETED") {
           const rows = data.rows || [];
           localStorage.setItem(cacheKey, JSON.stringify({savedAt:Date.now(),rows}));
-          applyCachedDailyRows(rows);
+          applyCachedDailyRows(rows, Date.now());
           done=true;
           break;
         }
@@ -149,7 +150,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     try {
       const cached = localStorage.getItem(cacheKey);
       const parsed = cached ? JSON.parse(cached) : null;
-      if (Array.isArray(parsed?.rows)) applyCachedDailyRows(parsed.rows);
+      if (Array.isArray(parsed?.rows)) applyCachedDailyRows(parsed.rows, parsed.savedAt);
     } catch {}
   }, [dateRange, profileId]);
 
