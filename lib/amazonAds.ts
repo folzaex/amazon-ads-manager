@@ -183,6 +183,58 @@ export async function createSponsoredProductsCampaignDailyReport(
   return String(data.reportId);
 }
 
+export async function createSponsoredProductsKeywordDailyReport(
+  profileId: string,
+  startDate: string,
+  endDate: string
+) {
+  const connection = await getAmazonConnectionByProfileId(profileId);
+  if (!connection?.refresh_token) throw new Error("Amazon-Profil nicht gefunden.");
+  const accessToken = await getAmazonAccessToken(connection.refresh_token);
+  const clientId = process.env.AMAZON_LWA_CLIENT_ID;
+  if (!clientId) throw new Error("Amazon LWA Client-ID fehlt.");
+
+  const res = await fetch(`${ADS_API_URL}/reporting/reports`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Amazon-Advertising-API-ClientId": clientId,
+      "Amazon-Advertising-API-Scope": profileId,
+      "Content-Type": "application/vnd.createasyncreportrequest.v3+json",
+    },
+    body: JSON.stringify({
+      name: `BookForge SP daily keywords ${startDate} - ${endDate}`,
+      startDate,
+      endDate,
+      configuration: {
+        adProduct: "SPONSORED_PRODUCTS",
+        groupBy: ["targeting"],
+        columns: [
+          "date","campaignId","campaignName","keywordId","keyword","matchType",
+          "impressions","clicks","cost","purchases14d","sales14d"
+        ],
+        filters: [
+          { field: "keywordType", values: ["BROAD","PHRASE","EXACT"] }
+        ],
+        reportTypeId: "spTargeting",
+        timeUnit: "DAILY",
+        format: "GZIP_JSON",
+      },
+    }),
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.reportId) {
+    const detail = typeof data === "object" && data ? JSON.stringify(data).slice(0,700) : "";
+    const duplicateId = typeof data?.detail === "string"
+      ? data.detail.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0]
+      : undefined;
+    if (res.status === 425 && duplicateId) return duplicateId;
+    throw new Error(`Amazon-Keyword-Report konnte nicht erstellt werden (HTTP ${res.status}). ${detail}`);
+  }
+  return String(data.reportId);
+}
+
 export async function getSponsoredProductsReport(profileId: string, reportId: string) {
   const connection = await getAmazonConnectionByProfileId(profileId);
   if (!connection?.refresh_token) throw new Error("Amazon-Profil nicht gefunden.");
