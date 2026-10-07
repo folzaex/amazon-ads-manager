@@ -12,7 +12,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState("");
   const [stateFilter,setStateFilter] = useState<"ALL"|"ENABLED"|"PAUSED">("ENABLED");
-  const [dateRange,setDateRange] = useState<"TODAY"|"7"|"30"|"90"|"CUSTOM">("TODAY");
+  const [dateRange,setDateRange] = useState<"TODAY"|"7"|"30"|"90">("TODAY");
   const [metrics,setMetrics] = useState<Metrics|null>(null);
   const [campaignMetrics,setCampaignMetrics] = useState<Record<string, any>>({});
   const [reportLoading,setReportLoading] = useState(false);
@@ -37,7 +37,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   useEffect(() => { if (profileId) loadCampaigns(profileId); }, [profileId]);
 
   async function loadReport(range=dateRange) {
-    if (!profileId || range === "CUSTOM") return;
+    if (!profileId) return;
     setReportLoading(true); setReportError("");
     setMetrics(null); setCampaignMetrics({});
     try {
@@ -68,7 +68,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     } finally { setReportLoading(false); }
   }
 
-  useEffect(() => { if (profileId && dateRange !== "CUSTOM") loadReport(dateRange); }, [profileId, dateRange]);
+  useEffect(() => { if (profileId) loadReport(dateRange); }, [profileId, dateRange]);
 
   const selected = profiles.find(p => p.amazon_profile_id === profileId);
   const filteredCampaigns = stateFilter === "ALL" ? campaigns : campaigns.filter(c => c.state === stateFilter);
@@ -106,7 +106,6 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       <button className={dateRange === "7" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("7")}>7 Tage</button>
       <button className={dateRange === "30" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("30")}>30 Tage</button>
       <button className={dateRange === "90" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("90")}>90 Tage</button>
-      <button className={dateRange === "CUSTOM" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("CUSTOM")}>Benutzerdefiniert</button>
     </div>
     </div>
 
