@@ -6,7 +6,7 @@ type Profile = {id:string; amazon_profile_id:string|null; profile_name:string|nu
 type Campaign = {campaignId:string; name:string; state?:string; campaignType?:string; dailyBudget?:number; startDate?:string; endDate?:string};
 type Metrics = {impressions:number; clicks:number; cost:number; sales14d:number; purchases14d:number; unitsSoldClicks14d:number; acos:number; roas:number};
 
-type TopKeyword = {keyword:string; campaignName:string; cost:number; clicks:number; purchases14d:number; sales14d:number; acos:number};
+type TopKeyword = {keyword:string; campaignName:string; cost:number; clicks:number; purchases14d:number};
 
 export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [profileId,setProfileId] = useState(() => profiles.find(p => p.country_code === "DE")?.amazon_profile_id ?? profiles[0]?.amazon_profile_id ?? "");
