@@ -10,7 +10,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [campaigns,setCampaigns] = useState<Campaign[]>([]);
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState("");
-  const [stateFilter,setStateFilter] = useState<"ALL"|"ENABLED"|"PAUSED">("ALL");
+  const [stateFilter,setStateFilter] = useState<"ALL"|"ENABLED"|"PAUSED">("ENABLED");
   const [dateRange,setDateRange] = useState<"TODAY"|"7"|"30"|"90"|"CUSTOM">("30");
 
   async function loadCampaigns(id=profileId) {
