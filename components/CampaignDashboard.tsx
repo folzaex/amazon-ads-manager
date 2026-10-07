@@ -36,61 +36,122 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
 
   useEffect(() => { if (profileId) loadCampaigns(profileId); }, [profileId]);
 
-  async function loadReport(range=dateRange, force=false) {
-    if (!profileId) return;
-    const cacheKey = `amazon-ads-metrics:${profileId}:${range}`;
-    const cacheMaxAge = 10 * 60 * 1000;
+  function daysForRange(range: typeof dateRange) {
+    if (range === "TODAY") return 1;
+    if (range === "YESTERDAY") return 1;
+    if (range === "DAY_BEFORE_YESTERDAY") return 1;
+    if (range === "7") return 7;
+    if (range === "30") return 30;
+    return 90;
+  }
 
-    if (!force) {
-      try {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed?.savedAt && Date.now() - parsed.savedAt < cacheMaxAge && parsed.metrics) {
-            setMetrics(parsed.metrics);
-            setCampaignMetrics(parsed.campaignMetrics || {});
-          }
-        }
-      } catch {}
+  function endOffsetForRange(range: typeof dateRange) {
+    if (range === "YESTERDAY") return 1;
+    if (range === "DAY_BEFORE_YESTERDAY") return 2;
+    return 0;
+  }
+
+  function aggregateDailyRows(rows:any[], range: typeof dateRange) {
+    const end = new Date();
+    end.setUTCDate(end.getUTCDate() - endOffsetForRange(range));
+    const endKey = end.toISOString().slice(0,10);
+    const days = daysForRange(range);
+    const start = new Date(end);
+    start.setUTCDate(start.getUTCDate() - (days - 1));
+    const startKey = start.toISOString().slice(0,10);
+
+    const byCampaign = new Map<string,any>();
+    for (const row of rows) {
+      const date = String(row.date ?? "");
+      if (date < startKey || date > endKey) continue;
+      const id = String(row.campaignId ?? "");
+      if (!id) continue;
+      const current = byCampaign.get(id) || {
+        campaignId:id,campaignName:row.campaignName||"",impressions:0,clicks:0,cost:0,
+        sales14d:0,purchases14d:0,unitsSoldClicks14d:0
+      };
+      current.impressions += Number(row.impressions || 0);
+      current.clicks += Number(row.clicks || 0);
+      current.cost += Number(row.cost ?? row.spend ?? 0);
+      current.sales14d += Number(row.sales14d || 0);
+      current.purchases14d += Number(row.purchases14d || 0);
+      current.unitsSoldClicks14d += Number(row.unitsSoldClicks14d || 0);
+      byCampaign.set(id,current);
     }
 
-    setReportLoading(true); setReportError("");
+    const campaignRows = [...byCampaign.values()];
+    const totals = campaignRows.reduce((a,r)=>({
+      impressions:a.impressions+r.impressions,
+      clicks:a.clicks+r.clicks,
+      cost:a.cost+r.cost,
+      sales14d:a.sales14d+r.sales14d,
+      purchases14d:a.purchases14d+r.purchases14d,
+      unitsSoldClicks14d:a.unitsSoldClicks14d+r.unitsSoldClicks14d
+    }),{impressions:0,clicks:0,cost:0,sales14d:0,purchases14d:0,unitsSoldClicks14d:0});
+    const acos = totals.sales14d > 0 ? (totals.cost / totals.sales14d) * 100 : 0;
+    const roas = totals.cost > 0 ? totals.sales14d / totals.cost : 0;
+    return {metrics:{...totals,acos,roas},campaignMetrics:Object.fromEntries(campaignRows.map(r=>[r.campaignId,r]))};
+  }
+
+  function applyCachedDailyRows(rows:any[]) {
+    const result = aggregateDailyRows(rows,dateRange);
+    setMetrics(result.metrics);
+    setCampaignMetrics(result.campaignMetrics);
+  }
+
+  async function loadReport(force=false) {
+    if (!profileId) return;
+    const cacheKey = `amazon-ads-daily:${profileId}`;
+    setReportError("");
+
     try {
+      const cached = localStorage.getItem(cacheKey);
+      if (!force && cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed?.rows) && parsed.savedAt) {
+          applyCachedDailyRows(parsed.rows);
+          if (Date.now() - parsed.savedAt < 10 * 60 * 1000) return;
+        }
+      }
+
+      setReportLoading(true);
       const create = await fetch("/api/amazon/report/create", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({profileId,range}), cache:"no-store"
+        body:JSON.stringify({profileId}), cache:"no-store"
       });
       const created = await create.json();
       if (!create.ok) throw new Error(created.error || "Report konnte nicht erstellt werden.");
-      const ids = (created.reportIds || []).join(",");
+
       let done = false;
       for (let attempt=0; attempt<12; attempt++) {
-        const res = await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportIds=${encodeURIComponent(ids)}`,{cache:"no-store"});
+        const res = await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportId=${encodeURIComponent(created.reportId)}`,{cache:"no-store"});
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Reportstatus konnte nicht geladen werden.");
         if (data.status === "COMPLETED") {
-          const map:Record<string,any>={};
-          for (const row of data.rows || []) map[row.campaignId]=row;
-          setMetrics(data.totals);
-          setCampaignMetrics(map);
-          try {
-            localStorage.setItem(cacheKey, JSON.stringify({
-              savedAt: Date.now(),
-              metrics: data.totals,
-              campaignMetrics: map
-            }));
-          } catch {}
-          done=true; break;
+          const rows = data.rows || [];
+          localStorage.setItem(cacheKey, JSON.stringify({savedAt:Date.now(),rows}));
+          applyCachedDailyRows(rows);
+          done=true;
+          break;
         }
         await new Promise(r=>setTimeout(r,5000));
       }
-      if (!done) setReportError("Amazon erstellt den Report noch. Bitte später erneut auf „Kampagnen aktualisieren“ klicken.");
+      if (!done) setReportError("Amazon erstellt den 90-Tage-Report noch. Die bisherigen Kennzahlen bleiben sichtbar.");
     } catch(e) {
       setReportError(e instanceof Error ? e.message : "Unbekannter Fehler.");
-    } finally { setReportLoading(false); }
+    } finally {
+      setReportLoading(false);
+    }
   }
-
-  useEffect(() => { if (profileId) loadReport(dateRange); }, [profileId, dateRange]);
+  useEffect(() => { if (profileId) loadReport(false); }, [profileId]);
+  useEffect(() => {
+    const cacheKey = `amazon-ads-daily:${profileId}`;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      const parsed = cached ? JSON.parse(cached) : null;
+      if (Array.isArray(parsed?.rows)) applyCachedDailyRows(parsed.rows);
+    } catch {}
+  }, [dateRange, profileId]);
 
   const selected = profiles.find(p => p.amazon_profile_id === profileId);
   const filteredCampaigns = stateFilter === "ALL" ? campaigns : campaigns.filter(c => c.state === stateFilter);
@@ -135,7 +196,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
 
     <div className="metrics-head">
       <strong>Performance</strong>
-      <button className="filter-btn" onClick={()=>loadReport(dateRange, true)} disabled={reportLoading}>
+      <button className="filter-btn" onClick={()=>loadReport(true)} disabled={reportLoading}>
         {reportLoading ? (metrics ? "Performance wird aktualisiert..." : "Performance wird geladen...") : "Performance aktualisieren"}
       </button>
     </div>
