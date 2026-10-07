@@ -12,7 +12,6 @@ export default async function Home() {
   return <main>
     <div className="card">
       <h1>Amazon Ads Manager</h1>
-      <p>Deine eigene Anwendung zur Analyse und späteren Verwaltung deiner Amazon-Ads-Kampagnen.</p>
       {dbError ? (
         <div className="status warn"><strong>Supabase-Verbindung</strong><br/>Der Verbindungsstatus konnte noch nicht geladen werden.</div>
       ) : profiles.length > 0 ? (
