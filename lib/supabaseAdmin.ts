@@ -93,6 +93,22 @@ export async function saveAmazonConnections(
   }
 }
 
+export async function getAmazonConnectionByProfileId(profileId: string): Promise<AmazonConnection | null> {
+  const { base } = config();
+  const res = await supabaseFetch(
+    `${base}/rest/v1/connections?select=id,amazon_profile_id,profile_name,country_code,created_at,updated_at&amazon_profile_id=eq.${encodeURIComponent(profileId)}&limit=1`,
+    { headers: headers(), cache: "no-store" },
+    "Laden des Amazon-Profils"
+  );
+
+  if (!res.ok) {
+    throw new Error(`Amazon-Profil konnte nicht geladen werden: ${await explain(res)}`);
+  }
+
+  const rows = await res.json();
+  return Array.isArray(rows) && rows.length ? rows[0] : null;
+}
+
 export async function getAmazonConnections(): Promise<AmazonConnection[]> {
   const { base } = config();
   const res = await supabaseFetch(
