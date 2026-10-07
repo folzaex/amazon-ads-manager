@@ -14,6 +14,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [stateFilter,setStateFilter] = useState<"ALL"|"ENABLED"|"PAUSED">("ENABLED");
   const [dateRange,setDateRange] = useState<"TODAY"|"YESTERDAY"|"DAY_BEFORE_YESTERDAY"|"7"|"30">("TODAY");
   const [metrics,setMetrics] = useState<Metrics|null>(null);
+  const [performanceUpdatedAt,setPerformanceUpdatedAt] = useState<number|null>(null);
   const [campaignMetrics,setCampaignMetrics] = useState<Record<string, any>>({});
   const [reportLoading,setReportLoading] = useState(false);
   const [reportError,setReportError] = useState("");
@@ -137,7 +138,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         }
         await new Promise(r=>setTimeout(r,5000));
       }
-      if (!done) setReportError("Amazon erstellt den 90-Tage-Report noch. Die bisherigen Kennzahlen bleiben sichtbar.");
+      if (!done) setReportError("Amazon erstellt den 30-Tage-Report noch. Die bisherigen Kennzahlen bleiben sichtbar.");
     } catch(e) {
       setReportError(e instanceof Error ? e.message : "Unbekannter Fehler.");
     } finally {
@@ -196,7 +197,16 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     </div>
 
     <div className="metrics-head">
-      <strong>Performance</strong>
+      <div>
+        <strong>Performance</strong>
+        {performanceUpdatedAt && (
+          <div className="performance-timestamp">
+            Datenstand: {new Date(performanceUpdatedAt).toLocaleString("de-DE", {
+              day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit"
+            })} Uhr
+          </div>
+        )}
+      </div>
       <button className="filter-btn" onClick={()=>loadReport(true)} disabled={reportLoading}>
         {reportLoading ? (metrics ? "Performance wird aktualisiert..." : "Performance wird geladen...") : "Performance aktualisieren"}
       </button>
