@@ -6,7 +6,7 @@ type Profile = {id:string; amazon_profile_id:string|null; profile_name:string|nu
 type Campaign = {campaignId:string; name:string; state?:string; campaignType?:string; dailyBudget?:number; startDate?:string; endDate?:string};
 type Metrics = {impressions:number; clicks:number; cost:number; sales14d:number; purchases14d:number; unitsSoldClicks14d:number; acos:number; roas:number};
 
-type TopKeyword = {keyword:string; campaignId:string; campaignName:string; cost:number; clicks:number; purchases14d:number};
+type TopKeyword = {keyword:string; campaignId:string; campaignName:string; matchType:string; cost:number; clicks:number; purchases14d:number};
 
 export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [profileId,setProfileId] = useState(() => profiles.find(p => p.country_code === "DE")?.amazon_profile_id ?? profiles[0]?.amazon_profile_id ?? "");
@@ -120,6 +120,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         keyword,
         campaignId: String(row.campaignId ?? ""),
         campaignName: String(row.campaignName ?? "Ohne Kampagne"),
+        matchType: String(row.matchType ?? ""),
         cost: 0,
         clicks: 0,
         purchases14d: 0
@@ -159,6 +160,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       const current = byKeyword.get(id) || {
         keyword, campaignId,
         campaignName: String(row.campaignName ?? "Ohne Kampagne"),
+        matchType: String(row.matchType ?? ""),
         cost: 0, clicks: 0, purchases14d: 0
       };
       current.cost += Number(row.cost || 0);
@@ -410,7 +412,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
             <strong>Top 3 Keywords nach Kosten</strong>
             <div className="campaign-keyword-list">
               {getCampaignTopKeywords(c.campaignId).map((k,i)=><div className="campaign-keyword-row" key={`${k.keyword}-${i}`}>
-                <span className="campaign-keyword-name">{k.keyword}</span>
+                <span className="campaign-keyword-name">{k.keyword} <small className="campaign-keyword-type">{k.matchType === "EXACT" ? "Genau" : k.matchType === "PHRASE" ? "Wortgruppe" : k.matchType === "BROAD" ? "Weit" : k.matchType}</small></span>
                 <span className="campaign-keyword-cost">{k.cost.toFixed(2)} €</span>
                 <span className="campaign-keyword-clicks">{k.clicks} Klicks</span>
                 <span className="campaign-keyword-orders">{k.purchases14d} Best.</span>
