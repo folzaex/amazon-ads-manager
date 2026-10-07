@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 type Profile = {id:string; amazon_profile_id:string|null; profile_name:string|null; country_code:string|null};
 type Campaign = {campaignId:string; name:string; state?:string; campaignType?:string; dailyBudget?:number; startDate?:string; endDate?:string};
+type Metrics = {impressions:number; clicks:number; cost:number; sales14d:number; purchases14d:number; unitsSoldClicks14d:number; acos:number; roas:number};
 
 export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [profileId,setProfileId] = useState(() => profiles.find(p => p.country_code === "DE")?.amazon_profile_id ?? profiles[0]?.amazon_profile_id ?? "");
@@ -12,6 +13,10 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [error,setError] = useState("");
   const [stateFilter,setStateFilter] = useState<"ALL"|"ENABLED"|"PAUSED">("ENABLED");
   const [dateRange,setDateRange] = useState<"TODAY"|"7"|"30"|"90"|"CUSTOM">("30");
+  const [metrics,setMetrics] = useState<Metrics|null>(null);
+  const [campaignMetrics,setCampaignMetrics] = useState<Record<string, any>>({});
+  const [reportLoading,setReportLoading] = useState(false);
+  const [reportError,setReportError] = useState("");
 
   async function loadCampaigns(id=profileId) {
     if (!id) return;
@@ -28,6 +33,40 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   }
 
   useEffect(() => { if (profileId) loadCampaigns(profileId); }, [profileId]);
+
+  async function loadReport(range=dateRange) {
+    if (!profileId || range === "CUSTOM") return;
+    setReportLoading(true); setReportError("");
+    setMetrics(null); setCampaignMetrics({});
+    try {
+      const create = await fetch("/api/amazon/report/create", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({profileId,range}), cache:"no-store"
+      });
+      const created = await create.json();
+      if (!create.ok) throw new Error(created.error || "Report konnte nicht erstellt werden.");
+      const ids = (created.reportIds || []).join(",");
+      let done = false;
+      for (let attempt=0; attempt<12; attempt++) {
+        const res = await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportIds=${encodeURIComponent(ids)}`,{cache:"no-store"});
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Reportstatus konnte nicht geladen werden.");
+        if (data.status === "COMPLETED") {
+          setMetrics(data.totals);
+          const map:Record<string,any>={};
+          for (const row of data.rows || []) map[row.campaignId]=row;
+          setCampaignMetrics(map);
+          done=true; break;
+        }
+        await new Promise(r=>setTimeout(r,5000));
+      }
+      if (!done) setReportError("Amazon erstellt den Report noch. Bitte später erneut auf „Kampagnen aktualisieren“ klicken.");
+    } catch(e) {
+      setReportError(e instanceof Error ? e.message : "Unbekannter Fehler.");
+    } finally { setReportLoading(false); }
+  }
+
+  useEffect(() => { if (profileId && dateRange !== "CUSTOM") loadReport(dateRange); }, [profileId, dateRange]);
 
   const selected = profiles.find(p => p.amazon_profile_id === profileId);
   const filteredCampaigns = stateFilter === "ALL" ? campaigns : campaigns.filter(c => c.state === stateFilter);
@@ -64,6 +103,23 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     </div>
     </div>
 
+    <div className="metrics-head">
+      <strong>Performance</strong>
+      <button className="filter-btn" onClick={()=>loadReport()} disabled={reportLoading || dateRange === "CUSTOM"}>
+        {reportLoading ? "Report wird geladen..." : "Performance aktualisieren"}
+      </button>
+    </div>
+    {reportError && <div className="status warn"><strong>Hinweis</strong><br/>{reportError}</div>}
+    {metrics && <div className="metrics-grid">
+      <div className="metric-card"><span>Ausgaben</span><strong>{metrics.cost.toFixed(2)} €</strong></div>
+      <div className="metric-card"><span>Umsatz</span><strong>{metrics.sales14d.toFixed(2)} €</strong></div>
+      <div className="metric-card"><span>Bestellungen</span><strong>{metrics.purchases14d}</strong></div>
+      <div className="metric-card"><span>Klicks</span><strong>{metrics.clicks.toLocaleString("de-DE")}</strong></div>
+      <div className="metric-card"><span>Impressionen</span><strong>{metrics.impressions.toLocaleString("de-DE")}</strong></div>
+      <div className="metric-card"><span>ACOS</span><strong>{metrics.acos.toFixed(1)} %</strong></div>
+      <div className="metric-card"><span>ROAS</span><strong>{metrics.roas.toFixed(2)}</strong></div>
+    </div>}
+
     {selected && <div className="profile-note">Ausgewähltes Profil: <strong>{selected.country_code || "–"}</strong></div>}
     {error && <div className="status error"><strong>Fehler</strong><br/>{error}</div>}
 
@@ -79,6 +135,9 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
           <span>{c.campaignType || "Sponsored Products"}</span>
           <span>{typeof c.dailyBudget === "number" ? `Tagesbudget: ${c.dailyBudget.toFixed(2)} €` : "Tagesbudget –"}</span>
           <span>{c.startDate ? `Start: ${c.startDate}` : ""}</span>
+          {campaignMetrics[c.campaignId] && <span>
+            {campaignMetrics[c.campaignId].cost.toFixed(2)} € · {campaignMetrics[c.campaignId].clicks} Klicks · {campaignMetrics[c.campaignId].purchases14d} Bestellungen · ACOS {campaignMetrics[c.campaignId].sales14d > 0 ? ((campaignMetrics[c.campaignId].cost / campaignMetrics[c.campaignId].sales14d) * 100).toFixed(1) : "0.0"} %
+          </span>}
         </div>
       </div>)}
     </div>
