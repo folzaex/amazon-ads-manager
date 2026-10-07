@@ -21,6 +21,12 @@ function headers(extra: Record<string, string> = {}) {
   };
 }
 
+async function explain(res: Response) {
+  const body = await res.text().catch(() => "");
+  const detail = body.replace(/\s+/g, " ").trim().slice(0, 500);
+  return detail ? `HTTP ${res.status}: ${detail}` : `HTTP ${res.status}`;
+}
+
 export type AmazonConnection = {
   id: string;
   amazon_profile_id: string | null;
@@ -47,7 +53,7 @@ export async function saveAmazonConnections(
   });
 
   if (!deleteRes.ok) {
-    throw new Error("Gespeicherte Amazon-Verbindungen konnten nicht aktualisiert werden.");
+    throw new Error(`Supabase konnte bestehende Verbindungen nicht löschen: ${await explain(deleteRes)}`);
   }
 
   const rows = profiles.map((profile) => ({
@@ -65,7 +71,7 @@ export async function saveAmazonConnections(
   });
 
   if (!insertRes.ok) {
-    throw new Error("Die Amazon-Verbindung konnte nicht in Supabase gespeichert werden.");
+    throw new Error(`Supabase konnte die Amazon-Verbindung nicht speichern: ${await explain(insertRes)}`);
   }
 }
 
@@ -77,7 +83,7 @@ export async function getAmazonConnections(): Promise<AmazonConnection[]> {
   );
 
   if (!res.ok) {
-    throw new Error("Amazon-Verbindungen konnten nicht geladen werden.");
+    throw new Error(`Amazon-Verbindungen konnten nicht geladen werden: ${await explain(res)}`);
   }
 
   return res.json();
