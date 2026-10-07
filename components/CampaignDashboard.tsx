@@ -111,7 +111,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
 
     <div className="metrics-head">
       <strong>Performance</strong>
-      <button className="filter-btn" onClick={()=>loadReport()} disabled={reportLoading || dateRange === "CUSTOM"}>
+      <button className="filter-btn" onClick={()=>loadReport()} disabled={reportLoading}>
         {reportLoading ? "Report wird geladen..." : "Performance aktualisieren"}
       </button>
     </div>
