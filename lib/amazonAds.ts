@@ -133,6 +133,54 @@ export async function createSponsoredProductsCampaignReport(
   return String(data.reportId);
 }
 
+
+export async function createSponsoredProductsCampaignDailyReport(
+  profileId: string,
+  startDate: string,
+  endDate: string
+) {
+  const connection = await getAmazonConnectionByProfileId(profileId);
+  if (!connection?.refresh_token) throw new Error("Amazon-Profil nicht gefunden.");
+  const accessToken = await getAmazonAccessToken(connection.refresh_token);
+  const clientId = process.env.AMAZON_LWA_CLIENT_ID;
+  if (!clientId) throw new Error("Amazon LWA Client-ID fehlt.");
+
+  const res = await fetch(`${ADS_API_URL}/reporting/reports`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Amazon-Advertising-API-ClientId": clientId,
+      "Amazon-Advertising-API-Scope": profileId,
+      "Content-Type": "application/vnd.createasyncreportrequest.v3+json",
+    },
+    body: JSON.stringify({
+      name: `BookForge SP daily campaigns ${startDate} - ${endDate}`,
+      startDate,
+      endDate,
+      configuration: {
+        adProduct: "SPONSORED_PRODUCTS",
+        groupBy: ["campaign"],
+        columns: [
+          "date","campaignId","impressions","clicks","cost","spend",
+          "purchases1d","purchases7d","purchases14d",
+          "sales1d","sales7d","sales14d",
+          "unitsSoldClicks14d","campaignStatus","campaignName"
+        ],
+        reportTypeId: "spCampaigns",
+        timeUnit: "DAILY",
+        format: "GZIP_JSON",
+      },
+    }),
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.reportId) {
+    const detail = typeof data === "object" && data ? JSON.stringify(data).slice(0,700) : "";
+    throw new Error(`Amazon-Tagesreport konnte nicht erstellt werden (HTTP ${res.status}). ${detail}`);
+  }
+  return String(data.reportId);
+}
+
 export async function getSponsoredProductsReport(profileId: string, reportId: string) {
   const connection = await getAmazonConnectionByProfileId(profileId);
   if (!connection?.refresh_token) throw new Error("Amazon-Profil nicht gefunden.");
