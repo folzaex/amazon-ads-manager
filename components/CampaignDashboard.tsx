@@ -17,6 +17,8 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [campaignMetrics,setCampaignMetrics] = useState<Record<string, any>>({});
   const [reportLoading,setReportLoading] = useState(false);
   const [reportError,setReportError] = useState("");
+  const [sortBy,setSortBy] = useState<"cost"|"purchases14d"|"clicks"|"impressions">("cost");
+  const [sortDirection,setSortDirection] = useState<"desc"|"asc">("desc");
 
   async function loadCampaigns(id=profileId) {
     if (!id) return;
@@ -70,6 +72,11 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
 
   const selected = profiles.find(p => p.amazon_profile_id === profileId);
   const filteredCampaigns = stateFilter === "ALL" ? campaigns : campaigns.filter(c => c.state === stateFilter);
+  const sortedCampaigns = [...filteredCampaigns].sort((a,b) => {
+    const av = Number(campaignMetrics[a.campaignId]?.[sortBy] ?? 0);
+    const bv = Number(campaignMetrics[b.campaignId]?.[sortBy] ?? 0);
+    return sortDirection === "asc" ? av - bv : bv - av;
+  });
 
   return <section className="dashboard">
     <div className="toolbar">
@@ -125,8 +132,20 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
 
     {!loading && !error && <div className="campaign-count"><strong>{filteredCampaigns.length}</strong> von {campaigns.length} Kampagnen angezeigt</div>}
 
+    <div className="sort-row">
+      <label htmlFor="sort">Sortieren nach</label>
+      <select id="sort" value={sortBy} onChange={e=>setSortBy(e.target.value as typeof sortBy)}>
+        <option value="cost">Kosten</option>
+        <option value="purchases14d">Bestellungen</option>
+        <option value="clicks">Klicks</option>
+        <option value="impressions">Impressionen</option>
+      </select>
+      <button className={sortDirection === "desc" ? "filter-btn active" : "filter-btn"} onClick={()=>setSortDirection("desc")}>↓ Absteigend</button>
+      <button className={sortDirection === "asc" ? "filter-btn active" : "filter-btn"} onClick={()=>setSortDirection("asc")}>↑ Aufsteigend</button>
+    </div>
+
     <div className="campaigns">
-      {filteredCampaigns.map(c=><div className="campaign" key={c.campaignId}>
+      {sortedCampaigns.map(c=><div className="campaign" key={c.campaignId}>
         <div className="campaign-main">
           <strong>{c.name}</strong>
           <span className={c.state === "ENABLED" ? "badge on" : "badge"}>{c.state === "ENABLED" ? "Aktiv" : "Pausiert"}</span>
@@ -136,7 +155,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
           <span>{typeof c.dailyBudget === "number" ? `Tagesbudget: ${c.dailyBudget.toFixed(2)} €` : "Tagesbudget –"}</span>
           <span>{c.startDate ? `Start: ${c.startDate}` : ""}</span>
           {campaignMetrics[c.campaignId] && <span>
-            {campaignMetrics[c.campaignId].cost.toFixed(2)} € · {campaignMetrics[c.campaignId].clicks} Klicks · {campaignMetrics[c.campaignId].purchases14d} Bestellungen · ACOS {campaignMetrics[c.campaignId].sales14d > 0 ? ((campaignMetrics[c.campaignId].cost / campaignMetrics[c.campaignId].sales14d) * 100).toFixed(1) : "0.0"} %
+            {campaignMetrics[c.campaignId].cost.toFixed(2)} € Kosten · {campaignMetrics[c.campaignId].purchases14d} Bestellungen · {campaignMetrics[c.campaignId].clicks} Klicks · {Number(campaignMetrics[c.campaignId].impressions).toLocaleString("de-DE")} Impressionen · ACOS {campaignMetrics[c.campaignId].sales14d > 0 ? ((campaignMetrics[c.campaignId].cost / campaignMetrics[c.campaignId].sales14d) * 100).toFixed(1) : "0.0"} %
           </span>}
         </div>
       </div>)}
