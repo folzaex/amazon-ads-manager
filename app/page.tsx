@@ -1,12 +1,34 @@
-export default function Home(){
+import { getAmazonConnections } from "@/lib/supabaseAdmin";
+
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  let profiles: Awaited<ReturnType<typeof getAmazonConnections>> = [];
+  let dbError = false;
+
+  try {
+    profiles = await getAmazonConnections();
+  } catch {
+    dbError = true;
+  }
+
   return <main><div className="card">
     <h1>Amazon Ads Manager</h1>
     <p>Deine eigene Anwendung zur Analyse und späteren Verwaltung deiner Amazon-Ads-Kampagnen.</p>
-    <div className="status warn">
-      <strong>Amazon Ads Verbindung</strong><br/>
-      Die technische Grundlage für die OAuth-Verbindung ist vorbereitet.
-    </div>
-    <a className="btn" href="/api/amazon/authorize">Mit Amazon Ads verbinden</a>
-    <p className="small">Geheime Zugangsdaten werden ausschließlich serverseitig verarbeitet.</p>
+    {dbError ? (
+      <div className="status warn"><strong>Supabase-Verbindung</strong><br/>Der Verbindungsstatus konnte noch nicht geladen werden.</div>
+    ) : profiles.length > 0 ? (
+      <div className="status ok">
+        <strong>Amazon Ads verbunden ✓</strong><br/>
+        {profiles.length} Amazon-Ads-Profil{profiles.length === 1 ? "" : "e"} gefunden.
+        <div style={{marginTop:12}}>
+          {profiles.map(p => <div key={p.id}>Profil {p.amazon_profile_id}{p.profile_name ? ` – ${p.profile_name}` : ""}{p.country_code ? ` (${p.country_code})` : ""}</div>)}
+        </div>
+      </div>
+    ) : (
+      <div className="status warn"><strong>Amazon Ads Verbindung</strong><br/>Noch nicht verbunden.</div>
+    )}
+    <a className="btn" href="/api/amazon/authorize">{profiles.length ? "Amazon Ads erneut verbinden" : "Mit Amazon Ads verbinden"}</a>
+    <p className="small">Geheime Zugangsdaten und Amazon-Refresh-Tokens werden ausschließlich serverseitig verarbeitet.</p>
   </div></main>
 }
