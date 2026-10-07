@@ -6,7 +6,7 @@ type Profile = {id:string; amazon_profile_id:string|null; profile_name:string|nu
 type Campaign = {campaignId:string; name:string; state?:string; campaignType?:string; dailyBudget?:number; startDate?:string; endDate?:string};
 type Metrics = {impressions:number; clicks:number; cost:number; sales14d:number; purchases14d:number; unitsSoldClicks14d:number; acos:number; roas:number};
 
-type TopKeyword = {keyword:string; campaignName:string; cost:number; clicks:number; purchases14d:number};
+type TopKeyword = {keyword:string; campaignId:string; campaignName:string; cost:number; clicks:number; purchases14d:number};
 
 export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [profileId,setProfileId] = useState(() => profiles.find(p => p.country_code === "DE")?.amazon_profile_id ?? profiles[0]?.amazon_profile_id ?? "");
@@ -25,6 +25,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [topKeywords,setTopKeywords] = useState<TopKeyword[]>([]);
   const [keywordLoading,setKeywordLoading] = useState(false);
   const [keywordError,setKeywordError] = useState("");
+  const [keywordRows,setKeywordRows] = useState<TopKeyword[]>([]);
 
   async function loadCampaigns(id=profileId) {
     if (!id) return;
@@ -117,6 +118,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       const id = String(row.keywordId ?? keyword) + "|" + String(row.campaignId ?? "");
       const current = byKeyword.get(id) || {
         keyword,
+        campaignId: String(row.campaignId ?? ""),
         campaignName: String(row.campaignName ?? "Ohne Kampagne"),
         cost: 0,
         clicks: 0,
@@ -134,7 +136,45 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   }
 
   function applyCachedKeywordRows(rows:any[]) {
-    setTopKeywords(aggregateKeywordRows(rows,dateRange));
+    const end = new Date();
+    end.setUTCDate(end.getUTCDate() - endOffsetForRange(dateRange));
+    const endKey = end.toISOString().slice(0,10);
+    const days = daysForRange(dateRange);
+    const start = new Date(end);
+    start.setUTCDate(start.getUTCDate() - (days - 1));
+    const startKey = start.toISOString().slice(0,10);
+    const filtered = rows.filter((row:any) => {
+      const date = String(row.date ?? "");
+      return date >= startKey && date <= endKey && String(row.keyword ?? "").trim();
+    });
+    const all = aggregateKeywordRows(filtered, dateRange);
+    // aggregateKeywordRows already limits to the global top 3, so build the full
+    // per-campaign list separately for campaign cards.
+    const byKeyword = new Map<string,TopKeyword>();
+    for (const row of filtered) {
+      const keyword = String(row.keyword ?? "").trim();
+      const campaignId = String(row.campaignId ?? "");
+      if (!keyword || !campaignId) continue;
+      const id = String(row.keywordId ?? keyword) + "|" + campaignId;
+      const current = byKeyword.get(id) || {
+        keyword, campaignId,
+        campaignName: String(row.campaignName ?? "Ohne Kampagne"),
+        cost: 0, clicks: 0, purchases14d: 0
+      };
+      current.cost += Number(row.cost || 0);
+      current.clicks += Number(row.clicks || 0);
+      current.purchases14d += Number(row.purchases14d || 0);
+      byKeyword.set(id,current);
+    }
+    setTopKeywords(all);
+    setKeywordRows([...byKeyword.values()]);
+  }
+
+  function getCampaignTopKeywords(campaignId:string) {
+    return keywordRows
+      .filter(k => k.campaignId === campaignId)
+      .sort((a,b) => b.cost - a.cost)
+      .slice(0,3);
   }
 
   function applyCachedDailyRows(rows:any[], savedAt?: number) {
@@ -365,6 +405,19 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
             {campaignMetrics[c.campaignId].cost.toFixed(2)} € Kosten · {campaignMetrics[c.campaignId].purchases14d} Bestellungen · {campaignMetrics[c.campaignId].clicks} Klicks · {Number(campaignMetrics[c.campaignId].impressions).toLocaleString("de-DE")} Impressionen · ACOS {campaignMetrics[c.campaignId].sales14d > 0 ? ((campaignMetrics[c.campaignId].cost / campaignMetrics[c.campaignId].sales14d) * 100).toFixed(1) : "0.0"} %
           </span>}
         </div>
+        {getCampaignTopKeywords(c.campaignId).length > 0 && (
+          <div className="campaign-keywords">
+            <strong>Top 3 Keywords nach Kosten</strong>
+            <div className="campaign-keyword-list">
+              {getCampaignTopKeywords(c.campaignId).map((k,i)=><div className="campaign-keyword-row" key={`${k.keyword}-${i}`}>
+                <span className="campaign-keyword-name">{k.keyword}</span>
+                <span className="campaign-keyword-cost">{k.cost.toFixed(2)} €</span>
+                <span className="campaign-keyword-clicks">{k.clicks} Klicks</span>
+                <span className="campaign-keyword-orders">{k.purchases14d} Best.</span>
+              </div>)}
+            </div>
+          </div>
+        )}
       </div>)}
     </div>
   </section>;
