@@ -151,9 +151,6 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
           <span className={c.state === "ENABLED" ? "badge on" : "badge"}>{c.state === "ENABLED" ? "Aktiv" : "Pausiert"}</span>
         </div>
         <div className="campaign-meta">
-          <span>{c.campaignType || "Sponsored Products"}</span>
-          <span>{typeof c.dailyBudget === "number" ? `Tagesbudget: ${c.dailyBudget.toFixed(2)} €` : "Tagesbudget –"}</span>
-          <span>{c.startDate ? `Start: ${c.startDate}` : ""}</span>
           {campaignMetrics[c.campaignId] && <span>
             {campaignMetrics[c.campaignId].cost.toFixed(2)} € Kosten · {campaignMetrics[c.campaignId].purchases14d} Bestellungen · {campaignMetrics[c.campaignId].clicks} Klicks · {Number(campaignMetrics[c.campaignId].impressions).toLocaleString("de-DE")} Impressionen · ACOS {campaignMetrics[c.campaignId].sales14d > 0 ? ((campaignMetrics[c.campaignId].cost / campaignMetrics[c.campaignId].sales14d) * 100).toFixed(1) : "0.0"} %
           </span>}
