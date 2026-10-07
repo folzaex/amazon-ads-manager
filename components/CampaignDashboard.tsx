@@ -12,7 +12,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState("");
   const [stateFilter,setStateFilter] = useState<"ALL"|"ENABLED"|"PAUSED">("ENABLED");
-  const [dateRange,setDateRange] = useState<"TODAY"|"YESTERDAY"|"DAY_BEFORE_YESTERDAY"|"7"|"30"|"90">("TODAY");
+  const [dateRange,setDateRange] = useState<"TODAY"|"YESTERDAY"|"DAY_BEFORE_YESTERDAY"|"7"|"30">("TODAY");
   const [metrics,setMetrics] = useState<Metrics|null>(null);
   const [campaignMetrics,setCampaignMetrics] = useState<Record<string, any>>({});
   const [reportLoading,setReportLoading] = useState(false);
@@ -42,7 +42,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     if (range === "DAY_BEFORE_YESTERDAY") return 1;
     if (range === "7") return 7;
     if (range === "30") return 30;
-    return 90;
+    return 30;
   }
 
   function endOffsetForRange(range: typeof dateRange) {
