@@ -12,7 +12,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState("");
   const [stateFilter,setStateFilter] = useState<"ALL"|"ENABLED"|"PAUSED">("ENABLED");
-  const [dateRange,setDateRange] = useState<"TODAY"|"7"|"30"|"90"|"CUSTOM">("30");
+  const [dateRange,setDateRange] = useState<"TODAY"|"7"|"30"|"90"|"CUSTOM">("TODAY");
   const [metrics,setMetrics] = useState<Metrics|null>(null);
   const [campaignMetrics,setCampaignMetrics] = useState<Record<string, any>>({});
   const [reportLoading,setReportLoading] = useState(false);
