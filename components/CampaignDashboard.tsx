@@ -36,10 +36,25 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
 
   useEffect(() => { if (profileId) loadCampaigns(profileId); }, [profileId]);
 
-  async function loadReport(range=dateRange) {
+  async function loadReport(range=dateRange, force=false) {
     if (!profileId) return;
+    const cacheKey = `amazon-ads-metrics:${profileId}:${range}`;
+    const cacheMaxAge = 10 * 60 * 1000;
+
+    if (!force) {
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.savedAt && Date.now() - parsed.savedAt < cacheMaxAge && parsed.metrics) {
+            setMetrics(parsed.metrics);
+            setCampaignMetrics(parsed.campaignMetrics || {});
+          }
+        }
+      } catch {}
+    }
+
     setReportLoading(true); setReportError("");
-    setMetrics(null); setCampaignMetrics({});
     try {
       const create = await fetch("/api/amazon/report/create", {
         method:"POST", headers:{"Content-Type":"application/json"},
@@ -54,10 +69,17 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Reportstatus konnte nicht geladen werden.");
         if (data.status === "COMPLETED") {
-          setMetrics(data.totals);
           const map:Record<string,any>={};
           for (const row of data.rows || []) map[row.campaignId]=row;
+          setMetrics(data.totals);
           setCampaignMetrics(map);
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify({
+              savedAt: Date.now(),
+              metrics: data.totals,
+              campaignMetrics: map
+            }));
+          } catch {}
           done=true; break;
         }
         await new Promise(r=>setTimeout(r,5000));
@@ -113,8 +135,8 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
 
     <div className="metrics-head">
       <strong>Performance</strong>
-      <button className="filter-btn" onClick={()=>loadReport()} disabled={reportLoading}>
-        {reportLoading ? "Report wird geladen..." : "Performance aktualisieren"}
+      <button className="filter-btn" onClick={()=>loadReport(dateRange, true)} disabled={reportLoading}>
+        {reportLoading ? (metrics ? "Performance wird aktualisiert..." : "Performance wird geladen...") : "Performance aktualisieren"}
       </button>
     </div>
     {reportError && <div className="status warn"><strong>Hinweis</strong><br/>{reportError}</div>}
