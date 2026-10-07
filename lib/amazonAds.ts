@@ -57,7 +57,7 @@ export async function getSponsoredProductsCampaigns(profileId: string): Promise<
       "Amazon-Advertising-API-ClientId": clientId,
       "Amazon-Advertising-API-Scope": profileId,
       "Content-Type": "application/vnd.spCampaign.v3+json",
-      Accept: "application/json",
+      Accept: "application/vnd.spCampaign.v3+json",
     },
     body: JSON.stringify({
       stateFilter: { include: ["ENABLED", "PAUSED"] },
