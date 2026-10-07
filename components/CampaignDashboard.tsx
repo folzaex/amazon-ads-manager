@@ -369,7 +369,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
             <div>Keyword</div><div>Kampagne</div><div>Kosten</div><div>Klicks</div><div>Bestellungen</div>
           </div>
           {topKeywords.map((k,i)=><div className="keyword-row" key={`${k.campaignName}-${k.keyword}-${i}`}>
-            <div className="keyword-cell keyword-name" data-label="Keyword">{k.keyword}</div>
+            <div className="keyword-cell keyword-name" data-label="Keyword">{k.keyword} <small className="campaign-keyword-type">{k.matchType === "EXACT" ? "Genau" : k.matchType === "PHRASE" ? "Wortgruppe" : k.matchType === "BROAD" ? "Weit" : k.matchType}</small></div>
             <div className="keyword-cell keyword-campaign" data-label="Kampagne">{k.campaignName}</div>
             <div className="keyword-cell keyword-number" data-label="Kosten">{k.cost.toFixed(2)} €</div>
             <div className="keyword-cell keyword-number" data-label="Klicks">{k.clicks}</div>
