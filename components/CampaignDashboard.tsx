@@ -1,0 +1,66 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Profile = {id:string; amazon_profile_id:string|null; profile_name:string|null; country_code:string|null};
+type Campaign = {campaignId:string; name:string; state?:string; campaignType?:string; dailyBudget?:number; startDate?:string; endDate?:string};
+
+export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
+  const [profileId,setProfileId] = useState(profiles[0]?.amazon_profile_id ?? "");
+  const [campaigns,setCampaigns] = useState<Campaign[]>([]);
+  const [loading,setLoading] = useState(false);
+  const [error,setError] = useState("");
+
+  async function loadCampaigns(id=profileId) {
+    if (!id) return;
+    setLoading(true); setError("");
+    try {
+      const res = await fetch(`/api/amazon/campaigns?profileId=${encodeURIComponent(id)}`,{cache:"no-store"});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Kampagnen konnten nicht geladen werden.");
+      setCampaigns(data.campaigns || []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unbekannter Fehler.");
+      setCampaigns([]);
+    } finally { setLoading(false); }
+  }
+
+  useEffect(() => { if (profileId) loadCampaigns(profileId); }, [profileId]);
+
+  const selected = profiles.find(p => p.amazon_profile_id === profileId);
+
+  return <section className="dashboard">
+    <div className="toolbar">
+      <div>
+        <label htmlFor="profile">Amazon-Ads-Profil</label>
+        <select id="profile" value={profileId} onChange={e=>setProfileId(e.target.value)}>
+          {profiles.map(p=><option key={p.id} value={p.amazon_profile_id ?? ""}>
+            {p.country_code ? p.country_code+" – " : ""}{p.profile_name || "Profil"} ({p.amazon_profile_id})
+          </option>)}
+        </select>
+      </div>
+      <button className="btn" onClick={()=>loadCampaigns()} disabled={loading}>
+        {loading ? "Lade..." : "Kampagnen aktualisieren"}
+      </button>
+    </div>
+
+    {selected && <div className="profile-note">Ausgewähltes Profil: <strong>{selected.country_code || "–"}</strong></div>}
+    {error && <div className="status error"><strong>Fehler</strong><br/>{error}</div>}
+
+    {!loading && !error && <div className="campaign-count"><strong>{campaigns.length}</strong> Kampagnen gefunden</div>}
+
+    <div className="campaigns">
+      {campaigns.map(c=><div className="campaign" key={c.campaignId}>
+        <div className="campaign-main">
+          <strong>{c.name}</strong>
+          <span className={c.state === "ENABLED" ? "badge on" : "badge"}>{c.state === "ENABLED" ? "Aktiv" : "Pausiert"}</span>
+        </div>
+        <div className="campaign-meta">
+          <span>{c.campaignType || "Sponsored Products"}</span>
+          <span>{typeof c.dailyBudget === "number" ? `Tagesbudget: ${c.dailyBudget.toFixed(2)} €` : "Tagesbudget –"}</span>
+          <span>{c.startDate ? `Start: ${c.startDate}` : ""}</span>
+        </div>
+      </div>)}
+    </div>
+  </section>;
+}
