@@ -11,6 +11,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState("");
   const [stateFilter,setStateFilter] = useState<"ALL"|"ENABLED"|"PAUSED">("ALL");
+  const [dateRange,setDateRange] = useState<"TODAY"|"7"|"30"|"90"|"CUSTOM">("30");
 
   async function loadCampaigns(id=profileId) {
     if (!id) return;
@@ -46,11 +47,21 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       </button>
     </div>
 
+    <div className="filter-row">
     <div className="campaign-filter">
       <span className="filter-label">Kampagnenstatus</span>
       <button className={stateFilter === "ALL" ? "filter-btn active" : "filter-btn"} onClick={() => setStateFilter("ALL")}>Alle</button>
       <button className={stateFilter === "ENABLED" ? "filter-btn active" : "filter-btn"} onClick={() => setStateFilter("ENABLED")}>Aktiv</button>
       <button className={stateFilter === "PAUSED" ? "filter-btn active" : "filter-btn"} onClick={() => setStateFilter("PAUSED")}>Pausiert</button>
+    </div>
+    <div className="campaign-filter">
+      <span className="filter-label">Zeitraum</span>
+      <button className={dateRange === "TODAY" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("TODAY")}>Heute</button>
+      <button className={dateRange === "7" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("7")}>7 Tage</button>
+      <button className={dateRange === "30" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("30")}>30 Tage</button>
+      <button className={dateRange === "90" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("90")}>90 Tage</button>
+      <button className={dateRange === "CUSTOM" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("CUSTOM")}>Benutzerdefiniert</button>
+    </div>
     </div>
 
     {selected && <div className="profile-note">Ausgewähltes Profil: <strong>{selected.country_code || "–"}</strong></div>}
