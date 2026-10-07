@@ -176,6 +176,8 @@ export async function createSponsoredProductsCampaignDailyReport(
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.reportId) {
     const detail = typeof data === "object" && data ? JSON.stringify(data).slice(0,700) : "";
+    const duplicateId = typeof data?.detail === "string" ? data.detail.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] : undefined;
+    if (res.status === 425 && duplicateId) return duplicateId;
     throw new Error(`Amazon-Tagesreport konnte nicht erstellt werden (HTTP ${res.status}). ${detail}`);
   }
   return String(data.reportId);
