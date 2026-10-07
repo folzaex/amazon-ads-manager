@@ -10,6 +10,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [campaigns,setCampaigns] = useState<Campaign[]>([]);
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState("");
+  const [stateFilter,setStateFilter] = useState<"ALL"|"ENABLED"|"PAUSED">("ALL");
 
   async function loadCampaigns(id=profileId) {
     if (!id) return;
@@ -28,6 +29,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   useEffect(() => { if (profileId) loadCampaigns(profileId); }, [profileId]);
 
   const selected = profiles.find(p => p.amazon_profile_id === profileId);
+  const filteredCampaigns = stateFilter === "ALL" ? campaigns : campaigns.filter(c => c.state === stateFilter);
 
   return <section className="dashboard">
     <div className="toolbar">
@@ -44,13 +46,20 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       </button>
     </div>
 
+    <div className="campaign-filter">
+      <span className="filter-label">Kampagnenstatus</span>
+      <button className={stateFilter === "ALL" ? "filter-btn active" : "filter-btn"} onClick={() => setStateFilter("ALL")}>Alle</button>
+      <button className={stateFilter === "ENABLED" ? "filter-btn active" : "filter-btn"} onClick={() => setStateFilter("ENABLED")}>Aktiv</button>
+      <button className={stateFilter === "PAUSED" ? "filter-btn active" : "filter-btn"} onClick={() => setStateFilter("PAUSED")}>Pausiert</button>
+    </div>
+
     {selected && <div className="profile-note">Ausgewähltes Profil: <strong>{selected.country_code || "–"}</strong></div>}
     {error && <div className="status error"><strong>Fehler</strong><br/>{error}</div>}
 
-    {!loading && !error && <div className="campaign-count"><strong>{campaigns.length}</strong> Kampagnen gefunden</div>}
+    {!loading && !error && <div className="campaign-count"><strong>{filteredCampaigns.length}</strong> von {campaigns.length} Kampagnen angezeigt</div>}
 
     <div className="campaigns">
-      {campaigns.map(c=><div className="campaign" key={c.campaignId}>
+      {filteredCampaigns.map(c=><div className="campaign" key={c.campaignId}>
         <div className="campaign-main">
           <strong>{c.name}</strong>
           <span className={c.state === "ENABLED" ? "badge on" : "badge"}>{c.state === "ENABLED" ? "Aktiv" : "Pausiert"}</span>
