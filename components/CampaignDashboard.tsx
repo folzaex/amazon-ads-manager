@@ -12,7 +12,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState("");
   const [stateFilter,setStateFilter] = useState<"ALL"|"ENABLED"|"PAUSED">("ENABLED");
-  const [dateRange,setDateRange] = useState<"TODAY"|"7"|"30"|"90">("TODAY");
+  const [dateRange,setDateRange] = useState<"TODAY"|"YESTERDAY"|"DAY_BEFORE_YESTERDAY"|"7"|"30"|"90">("TODAY");
   const [metrics,setMetrics] = useState<Metrics|null>(null);
   const [campaignMetrics,setCampaignMetrics] = useState<Record<string, any>>({});
   const [reportLoading,setReportLoading] = useState(false);
@@ -103,6 +103,8 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     <div className="campaign-filter">
       <span className="filter-label">Zeitraum</span>
       <button className={dateRange === "TODAY" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("TODAY")}>Heute</button>
+      <button className={dateRange === "YESTERDAY" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("YESTERDAY")}>Gestern</button>
+      <button className={dateRange === "DAY_BEFORE_YESTERDAY" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("DAY_BEFORE_YESTERDAY")}>Vorgestern</button>
       <button className={dateRange === "7" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("7")}>7 Tage</button>
       <button className={dateRange === "30" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("30")}>30 Tage</button>
       <button className={dateRange === "90" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("90")}>90 Tage</button>
