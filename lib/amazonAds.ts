@@ -19,7 +19,7 @@ export type AmazonCampaign = {
   endDate?: string;
 };
 
-async function getAccessToken(refreshToken: string) {
+export async function getAmazonAccessToken(refreshToken: string) {
   const clientId = process.env.AMAZON_LWA_CLIENT_ID;
   const clientSecret = process.env.AMAZON_LWA_CLIENT_SECRET;
   if (!clientId || !clientSecret) throw new Error("Amazon LWA Zugangsdaten fehlen.");
@@ -46,7 +46,7 @@ export async function getSponsoredProductsCampaigns(profileId: string): Promise<
   const connection = await getAmazonConnectionByProfileId(profileId);
   if (!connection?.refresh_token) throw new Error("Amazon-Profil nicht gefunden.");
 
-  const accessToken = await getAccessToken(connection.refresh_token);
+  const accessToken = await getAmazonAccessToken(connection.refresh_token);
   const clientId = process.env.AMAZON_LWA_CLIENT_ID;
   if (!clientId) throw new Error("Amazon LWA Client-ID fehlt.");
 
@@ -82,4 +82,86 @@ export async function getSponsoredProductsCampaigns(profileId: string): Promise<
     startDate: c.startDate,
     endDate: c.endDate,
   })).filter((c: AmazonCampaign) => c.campaignId && c.campaignId !== "undefined");
+}
+
+
+export async function createSponsoredProductsCampaignReport(
+  profileId: string,
+  startDate: string,
+  endDate: string
+) {
+  const connection = await getAmazonConnectionByProfileId(profileId);
+  if (!connection?.refresh_token) throw new Error("Amazon-Profil nicht gefunden.");
+  const accessToken = await getAmazonAccessToken(connection.refresh_token);
+  const clientId = process.env.AMAZON_LWA_CLIENT_ID;
+  if (!clientId) throw new Error("Amazon LWA Client-ID fehlt.");
+
+  const res = await fetch(`${ADS_API_URL}/reporting/reports`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Amazon-Advertising-API-ClientId": clientId,
+      "Amazon-Advertising-API-Scope": profileId,
+      "Content-Type": "application/vnd.createasyncreportrequest.v3+json",
+    },
+    body: JSON.stringify({
+      name: `BookForge SP campaigns ${startDate} - ${endDate}`,
+      startDate,
+      endDate,
+      configuration: {
+        adProduct: "SPONSORED_PRODUCTS",
+        groupBy: ["campaign"],
+        columns: [
+          "campaignId","impressions","clicks","cost","spend",
+          "purchases1d","purchases7d","purchases14d",
+          "sales1d","sales7d","sales14d",
+          "unitsSoldClicks14d","campaignStatus","campaignName",
+          "campaignBudgetCurrencyCode","date","startDate","endDate"
+        ],
+        reportTypeId: "spCampaigns",
+        timeUnit: "SUMMARY",
+        format: "GZIP_JSON",
+      },
+    }),
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.reportId) {
+    const detail = typeof data === "object" && data ? JSON.stringify(data).slice(0,700) : "";
+    throw new Error(`Amazon-Report konnte nicht erstellt werden (HTTP ${res.status}). ${detail}`);
+  }
+  return String(data.reportId);
+}
+
+export async function getSponsoredProductsReport(profileId: string, reportId: string) {
+  const connection = await getAmazonConnectionByProfileId(profileId);
+  if (!connection?.refresh_token) throw new Error("Amazon-Profil nicht gefunden.");
+  const accessToken = await getAmazonAccessToken(connection.refresh_token);
+  const clientId = process.env.AMAZON_LWA_CLIENT_ID;
+  if (!clientId) throw new Error("Amazon LWA Client-ID fehlt.");
+
+  const res = await fetch(`${ADS_API_URL}/reporting/reports/${encodeURIComponent(reportId)}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Amazon-Advertising-API-ClientId": clientId,
+      "Amazon-Advertising-API-Scope": profileId,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = typeof data === "object" && data ? JSON.stringify(data).slice(0,700) : "";
+    throw new Error(`Amazon-Reportstatus konnte nicht geladen werden (HTTP ${res.status}). ${detail}`);
+  }
+  if (data.status !== "COMPLETED") return {status: data.status, rows: []};
+
+  if (!data.url) throw new Error("Amazon-Report ist fertig, aber keine Download-URL wurde geliefert.");
+  const fileRes = await fetch(data.url, {cache: "no-store"});
+  if (!fileRes.ok) throw new Error(`Amazon-Report konnte nicht heruntergeladen werden (HTTP ${fileRes.status}).`);
+  const buffer = await fileRes.arrayBuffer();
+  const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream("gzip"));
+  const text = await new Response(stream).text();
+  const parsed = JSON.parse(text);
+  return {status: data.status, rows: Array.isArray(parsed) ? parsed : []};
 }
