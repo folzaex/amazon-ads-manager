@@ -375,6 +375,34 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     if (k?.status==="COMPLETED") applyKeywordHistory(k);
   }, [selectedKeywordReport]);
 
+  function selectRangeAndReport(range:typeof dateRange) {
+    setDateRange(range);
+    const days = range === "7" ? 7 : 1;
+    const matching = performanceHistory.find(r => r.status === "COMPLETED" && r.days === days);
+    if (matching) {
+      setSelectedPerformanceReport(matching.reportId);
+      applyPerformanceHistory(matching, range);
+    }
+  }
+
+  function selectPerformanceReport(reportId:string) {
+    const item = performanceHistory.find(r => r.reportId === reportId);
+    setSelectedPerformanceReport(reportId);
+    if (!item) return;
+    const range = item.days === 7 ? "7" : "TODAY";
+    setDateRange(range);
+    if (item.status === "COMPLETED") applyPerformanceHistory(item, range);
+  }
+
+  function selectKeywordReport(reportId:string) {
+    const item = keywordHistory.find(r => r.reportId === reportId);
+    setSelectedKeywordReport(reportId);
+    if (!item) return;
+    const range = item.days === 7 ? "7" : "TODAY";
+    setDateRange(range);
+    if (item.status === "COMPLETED") applyKeywordHistory(item, range);
+  }
+
   const selected = profiles.find(p => p.amazon_profile_id === profileId);
   const selectedPerformanceHistoryItem = performanceHistory.find(r => r.reportId === selectedPerformanceReport);
   const selectedKeywordHistoryItem = keywordHistory.find(r => r.reportId === selectedKeywordReport);
@@ -409,10 +437,10 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     </div>
     <div className="campaign-filter">
       <span className="filter-label">Zeitraum</span>
-      <button className={dateRange === "TODAY" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("TODAY")}>Heute</button>
+      <button className={dateRange === "TODAY" ? "filter-btn active" : "filter-btn"} onClick={() => selectRangeAndReport("TODAY")}>Heute</button>
       <button className={dateRange === "YESTERDAY" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("YESTERDAY")}>Gestern</button>
       <button className={dateRange === "DAY_BEFORE_YESTERDAY" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("DAY_BEFORE_YESTERDAY")}>Vorgestern</button>
-      <button className={dateRange === "7" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("7")}>7 Tage</button>
+      <button className={dateRange === "7" ? "filter-btn active" : "filter-btn"} onClick={() => selectRangeAndReport("7")}>7 Tage</button>
 
     </div>
     </div>
@@ -439,7 +467,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     </div>
     {performanceHistory.length > 0 && <div className="report-history">
       <label htmlFor="performance-report">Performance-Report</label>
-      <select id="performance-report" value={selectedPerformanceReport} onChange={e=>setSelectedPerformanceReport(e.target.value)}>
+      <select id="performance-report" value={selectedPerformanceReport} onChange={e=>selectPerformanceReport(e.target.value)}>
         {performanceHistory.map(r=><option key={r.id} value={r.reportId}>
           {new Date(r.requestedAt).toLocaleString("de-DE")} · {r.days} Tag{r.days===1?"":"e"} · {r.status==="COMPLETED"?"fertig":r.status==="PROCESSING"?"wird verarbeitet":"fehlgeschlagen"}
         </option>)}
@@ -487,7 +515,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       </div>
       {keywordHistory.length > 0 && <div className="report-history">
         <label htmlFor="keyword-report">Keyword-Report</label>
-        <select id="keyword-report" value={selectedKeywordReport} onChange={e=>setSelectedKeywordReport(e.target.value)}>
+        <select id="keyword-report" value={selectedKeywordReport} onChange={e=>selectKeywordReport(e.target.value)}>
           {keywordHistory.map(r=><option key={r.id} value={r.reportId}>
             {new Date(r.requestedAt).toLocaleString("de-DE")} · {r.days} Tag{r.days===1?"":"e"} · {r.status==="COMPLETED"?"fertig":r.status==="PROCESSING"?"wird verarbeitet":"fehlgeschlagen"}
           </option>)}
