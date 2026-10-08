@@ -26,6 +26,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [keywordLoading,setKeywordLoading] = useState(false);
   const [keywordError,setKeywordError] = useState("");
   const [keywordRows,setKeywordRows] = useState<TopKeyword[]>([]);
+  const [keywordUpdatedAt,setKeywordUpdatedAt] = useState<number|null>(null);
 
   async function loadCampaigns(id=profileId) {
     if (!id) return;
@@ -138,7 +139,8 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       .slice(0,3);
   }
 
-  function applyCachedKeywordRows(rows:any[]) {
+  function applyCachedKeywordRows(rows:any[], savedAt?: number) {
+    if (savedAt) setKeywordUpdatedAt(savedAt);
     const end = new Date();
     end.setUTCDate(end.getUTCDate() - endOffsetForRange(dateRange));
     const endKey = end.toISOString().slice(0,10);
@@ -247,7 +249,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       if (!force && cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed?.rows) && parsed.savedAt) {
-          applyCachedKeywordRows(parsed.rows);
+          applyCachedKeywordRows(parsed.rows, parsed.savedAt);
           if (Date.now() - parsed.savedAt < 10 * 60 * 1000) return true;
         }
       }
@@ -267,8 +269,9 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         if (!res.ok) throw new Error(data.error || "Keyword-Reportstatus konnte nicht geladen werden.");
         if (data.status === "COMPLETED") {
           const rows = data.rows || [];
-          localStorage.setItem(cacheKey, JSON.stringify({savedAt:Date.now(),rows}));
-          applyCachedKeywordRows(rows);
+          const savedAt = Date.now();
+          localStorage.setItem(cacheKey, JSON.stringify({savedAt,rows}));
+          applyCachedKeywordRows(rows, savedAt);
           done=true;
           break;
         }
@@ -305,7 +308,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       if (Array.isArray(parsed?.rows)) applyCachedDailyRows(parsed.rows, parsed.savedAt);
       const keywordCached = localStorage.getItem(`amazon-ads-keywords-v2:${profileId}`);
       const keywordParsed = keywordCached ? JSON.parse(keywordCached) : null;
-      if (Array.isArray(keywordParsed?.rows)) applyCachedKeywordRows(keywordParsed.rows);
+      if (Array.isArray(keywordParsed?.rows)) applyCachedKeywordRows(keywordParsed.rows, keywordParsed.savedAt);
     } catch {}
   }, [dateRange, profileId]);
 
@@ -379,7 +382,16 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     {keywordError && <div className="status warn"><strong>Keyword-Hinweis</strong><br/>{keywordError}</div>}
     <div className="top-keywords">
       <div className="top-keywords-head">
-        <strong>Top 3 Keywords nach Kosten</strong>
+        <div>
+          <strong>Top 3 Keywords nach Kosten</strong>
+          {keywordUpdatedAt && (
+            <div className="performance-timestamp">
+              Datenstand: {new Date(keywordUpdatedAt).toLocaleString("de-DE", {
+                day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit"
+              })} Uhr
+            </div>
+          )}
+        </div>
         <button className="filter-btn" onClick={()=>loadKeywordReport(true)} disabled={keywordLoading || reportLoading}>
           {keywordLoading ? "Keywords werden geladen..." : "Keywords aktualisieren"}
         </button>
