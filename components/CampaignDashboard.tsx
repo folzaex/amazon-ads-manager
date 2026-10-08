@@ -138,12 +138,12 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       .slice(0,3);
   }
 
-  function applyCachedKeywordRows(rows:any[], savedAt?: number) {
+  function applyCachedKeywordRows(rows:any[], savedAt?: number, range: typeof dateRange = dateRange) {
     if (savedAt) setKeywordUpdatedAt(savedAt);
     const end = new Date();
-    end.setUTCDate(end.getUTCDate() - endOffsetForRange(dateRange));
+    end.setUTCDate(end.getUTCDate() - endOffsetForRange(range));
     const endKey = end.toISOString().slice(0,10);
-    const days = daysForRange(dateRange);
+    const days = daysForRange(range);
     const start = new Date(end);
     start.setUTCDate(start.getUTCDate() - (days - 1));
     const startKey = start.toISOString().slice(0,10);
@@ -151,7 +151,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       const date = String(row.date ?? "");
       return date >= startKey && date <= endKey && String(row.keyword ?? "").trim();
     });
-    const all = aggregateKeywordRows(filtered, dateRange);
+    const all = aggregateKeywordRows(filtered, range);
     // aggregateKeywordRows already limits to the global top 3, so build the full
     // per-campaign list separately for campaign cards.
     const byKeyword = new Map<string,TopKeyword>();
@@ -183,14 +183,14 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       .slice(0,3);
   }
 
-  function applyCachedDailyRows(rows:any[], savedAt?: number) {
-    const result = aggregateDailyRows(rows,dateRange);
+  function applyCachedDailyRows(rows:any[], savedAt?: number, range: typeof dateRange = dateRange) {
+    const result = aggregateDailyRows(rows,range);
     setMetrics(result.metrics);
     setCampaignMetrics(result.campaignMetrics);
     if (savedAt) setPerformanceUpdatedAt(savedAt);
   }
 
-  async function loadReport(force=false, days=7): Promise<boolean> {
+  async function loadReport(force=false, days=7, range: typeof dateRange = dateRange): Promise<boolean> {
     if (!profileId) return false;
     const cacheKey = `amazon-ads-daily:${profileId}:${days}`;
     setReportError("");
@@ -200,7 +200,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       if (!force && cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed?.rows) && parsed.savedAt) {
-          applyCachedDailyRows(parsed.rows, parsed.savedAt);
+          applyCachedDailyRows(parsed.rows, parsed.savedAt, range);
           if (Date.now() - parsed.savedAt < 10 * 60 * 1000) return true;
         }
       }
@@ -221,7 +221,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         if (data.status === "COMPLETED") {
           const rows = data.rows || [];
           localStorage.setItem(cacheKey, JSON.stringify({savedAt:Date.now(),rows}));
-          applyCachedDailyRows(rows, Date.now());
+          applyCachedDailyRows(rows, Date.now(), range);
           done=true;
           break;
         }
@@ -239,7 +239,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       setReportLoading(false);
     }
   }
-  async function loadKeywordReport(force=false, days=7): Promise<boolean> {
+  async function loadKeywordReport(force=false, days=7, range: typeof dateRange = dateRange): Promise<boolean> {
     if (!profileId) return false;
     const cacheKey = `amazon-ads-keywords-v2:${profileId}:${days}`;
     setKeywordError("");
@@ -248,7 +248,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       if (!force && cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed?.rows) && parsed.savedAt) {
-          applyCachedKeywordRows(parsed.rows, parsed.savedAt);
+          applyCachedKeywordRows(parsed.rows, parsed.savedAt, range);
           if (Date.now() - parsed.savedAt < 10 * 60 * 1000) return true;
         }
       }
@@ -270,7 +270,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
           const rows = data.rows || [];
           const savedAt = Date.now();
           localStorage.setItem(cacheKey, JSON.stringify({savedAt,rows}));
-          applyCachedKeywordRows(rows, savedAt);
+          applyCachedKeywordRows(rows, savedAt, range);
           done=true;
           break;
         }
@@ -361,7 +361,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         <button className="filter-btn" onClick={()=>loadReport(true,7)} disabled={reportLoading || keywordLoading}>
           {reportLoading ? (metrics ? "Performance wird aktualisiert..." : "Performance wird geladen...") : "Performance aktualisieren"}
         </button>
-        <button className="filter-btn" onClick={()=>{setDateRange("TODAY"); loadReport(true,1)}} disabled={reportLoading || keywordLoading}>
+        <button className="filter-btn" onClick={()=>{setDateRange("TODAY"); loadReport(true,1,"TODAY")}} disabled={reportLoading || keywordLoading}>
           Heute aktualisieren
         </button>
       </div>
@@ -394,7 +394,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
           <button className="filter-btn" onClick={()=>loadKeywordReport(true,7)} disabled={keywordLoading || reportLoading}>
             {keywordLoading ? "Keywords werden geladen..." : "Keywords aktualisieren"}
           </button>
-          <button className="filter-btn" onClick={()=>{setDateRange("TODAY"); loadKeywordReport(true,1)}} disabled={keywordLoading || reportLoading}>
+          <button className="filter-btn" onClick={()=>{setDateRange("TODAY"); loadKeywordReport(true,1,"TODAY")}} disabled={keywordLoading || reportLoading}>
             Heute aktualisieren
           </button>
         </div>
