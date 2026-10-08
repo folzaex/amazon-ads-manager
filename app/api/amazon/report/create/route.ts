@@ -9,12 +9,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const profileId = String(body.profileId || "").trim();
+    const days = Number(body.days) === 1 ? 1 : 7;
     if (!profileId) return NextResponse.json({error:"profileId fehlt."},{status:400});
 
     const end = new Date();
     const start = new Date(end);
     // Für schnellere Reports laden wir nur die letzten 7 Tage.
-    start.setUTCDate(start.getUTCDate() - 6);
+    start.setUTCDate(start.getUTCDate() - (days - 1));
 
     const startDate = format(start);
     const endDate = format(end);
