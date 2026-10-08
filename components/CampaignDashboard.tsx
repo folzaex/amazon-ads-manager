@@ -365,15 +365,19 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     loadHistories();
   }, [profileId]);
 
+  // Der Zeitraum ist nur eine Ansicht auf den bereits ausgewählten Report.
+  // Beim Wechsel von Heute/Gestern/Vorgestern/7 Tage werden die gespeicherten
+  // Zeilen des jeweils manuell ausgewählten Performance- und Keyword-Reports
+  // neu gefiltert. Es wird dabei KEIN anderer Report automatisch ausgewählt.
   useEffect(() => {
     const p=performanceHistory.find(x=>x.reportId===selectedPerformanceReport);
-    if (p?.status==="COMPLETED") applyPerformanceHistory(p);
-  }, [selectedPerformanceReport]);
+    if (p?.status==="COMPLETED") applyPerformanceHistory(p, dateRange);
+  }, [selectedPerformanceReport, performanceHistory, dateRange]);
 
   useEffect(() => {
     const k=keywordHistory.find(x=>x.reportId===selectedKeywordReport);
-    if (k?.status==="COMPLETED") applyKeywordHistory(k);
-  }, [selectedKeywordReport]);
+    if (k?.status==="COMPLETED") applyKeywordHistory(k, dateRange);
+  }, [selectedKeywordReport, keywordHistory, dateRange]);
 
   const selected = profiles.find(p => p.amazon_profile_id === profileId);
   const selectedPerformanceHistoryItem = performanceHistory.find(r => r.reportId === selectedPerformanceReport);
