@@ -189,8 +189,8 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     if (savedAt) setPerformanceUpdatedAt(savedAt);
   }
 
-  async function loadReport(force=false) {
-    if (!profileId) return;
+  async function loadReport(force=false): Promise<boolean> {
+    if (!profileId) return false;
     const cacheKey = `amazon-ads-daily:${profileId}`;
     setReportError("");
 
@@ -200,7 +200,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed?.rows) && parsed.savedAt) {
           applyCachedDailyRows(parsed.rows, parsed.savedAt);
-          if (Date.now() - parsed.savedAt < 10 * 60 * 1000) return;
+          if (Date.now() - parsed.savedAt < 10 * 60 * 1000) return true;
         }
       }
 
@@ -226,15 +226,20 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         }
         await new Promise(r=>setTimeout(r,5000));
       }
-      if (!done) setReportError("Amazon braucht ungewöhnlich lange für den 30-Tage-Report. Die bisherigen Kennzahlen bleiben sichtbar.");
+      if (!done) {
+        setReportError("Amazon braucht ungewöhnlich lange für den 30-Tage-Report. Die bisherigen Kennzahlen bleiben sichtbar.");
+        return false;
+      }
+      return true;
     } catch(e) {
       setReportError(e instanceof Error ? e.message : "Unbekannter Fehler.");
+      return false;
     } finally {
       setReportLoading(false);
     }
   }
-  async function loadKeywordReport(force=false) {
-    if (!profileId) return;
+  async function loadKeywordReport(force=false): Promise<boolean> {
+    if (!profileId) return false;
     const cacheKey = `amazon-ads-keywords-v2:${profileId}`;
     setKeywordError("");
     try {
@@ -243,7 +248,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed?.rows) && parsed.savedAt) {
           applyCachedKeywordRows(parsed.rows);
-          if (Date.now() - parsed.savedAt < 10 * 60 * 1000) return;
+          if (Date.now() - parsed.savedAt < 10 * 60 * 1000) return true;
         }
       }
 
@@ -269,16 +274,29 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         }
         await new Promise(r=>setTimeout(r,5000));
       }
-      if (!done) setKeywordError("Amazon erstellt den Keyword-Report noch.");
+      if (!done) {
+        setKeywordError("Amazon erstellt den Keyword-Report noch.");
+        return false;
+      }
+      return true;
     } catch(e) {
       setKeywordError(e instanceof Error ? e.message : "Unbekannter Fehler.");
+      return false;
     } finally {
       setKeywordLoading(false);
     }
   }
 
-  useEffect(() => { if (profileId) loadReport(false); }, [profileId]);
-  useEffect(() => { if (profileId) loadKeywordReport(false); }, [profileId]);
+  // Reports werden bewusst nacheinander geladen. Amazon begrenzt parallele
+  // Reporting-Jobs pro Werbetreibendem; dadurch blockieren sich Performance-
+  // und Keyword-Report nicht mehr gegenseitig.
+  useEffect(() => {
+    if (!profileId) return;
+    (async () => {
+      const performanceDone = await loadReport(false);
+      if (performanceDone) await loadKeywordReport(false);
+    })();
+  }, [profileId]);
   useEffect(() => {
     const cacheKey = `amazon-ads-daily:${profileId}`;
     try {
@@ -343,7 +361,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
           </div>
         )}
       </div>
-      <button className="filter-btn" onClick={()=>loadReport(true)} disabled={reportLoading}>
+      <button className="filter-btn" onClick={()=>loadReport(true)} disabled={reportLoading || keywordLoading}>
         {reportLoading ? (metrics ? "Performance wird aktualisiert..." : "Performance wird geladen...") : "Performance aktualisieren"}
       </button>
     </div>
@@ -362,7 +380,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     <div className="top-keywords">
       <div className="top-keywords-head">
         <strong>Top 3 Keywords nach Kosten</strong>
-        <button className="filter-btn" onClick={()=>loadKeywordReport(true)} disabled={keywordLoading}>
+        <button className="filter-btn" onClick={()=>loadKeywordReport(true)} disabled={keywordLoading || reportLoading}>
           {keywordLoading ? "Keywords werden geladen..." : "Keywords aktualisieren"}
         </button>
       </div>
