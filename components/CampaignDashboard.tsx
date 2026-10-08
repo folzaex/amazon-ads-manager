@@ -190,9 +190,9 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     if (savedAt) setPerformanceUpdatedAt(savedAt);
   }
 
-  async function loadReport(force=false): Promise<boolean> {
+  async function loadReport(force=false, days=7): Promise<boolean> {
     if (!profileId) return false;
-    const cacheKey = `amazon-ads-daily:${profileId}`;
+    const cacheKey = `amazon-ads-daily:${profileId}:${days}`;
     setReportError("");
 
     try {
@@ -208,7 +208,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       setReportLoading(true);
       const create = await fetch("/api/amazon/report/create", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({profileId}), cache:"no-store"
+        body:JSON.stringify({profileId, days}), cache:"no-store"
       });
       const created = await create.json();
       if (!create.ok) throw new Error(created.error || "Report konnte nicht erstellt werden.");
@@ -239,9 +239,9 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       setReportLoading(false);
     }
   }
-  async function loadKeywordReport(force=false): Promise<boolean> {
+  async function loadKeywordReport(force=false, days=7): Promise<boolean> {
     if (!profileId) return false;
-    const cacheKey = `amazon-ads-keywords-v2:${profileId}`;
+    const cacheKey = `amazon-ads-keywords-v2:${profileId}:${days}`;
     setKeywordError("");
     try {
       const cached = localStorage.getItem(cacheKey);
@@ -256,7 +256,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       setKeywordLoading(true);
       const create = await fetch("/api/amazon/keywords/report/create", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({profileId}), cache:"no-store"
+        body:JSON.stringify({profileId, days}), cache:"no-store"
       });
       const created = await create.json();
       if (!create.ok) throw new Error(created.error || "Keyword-Report konnte nicht erstellt werden.");
@@ -294,12 +294,13 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   // Neue Performance- und Keyword-Reports werden ausschließlich über die
   // jeweiligen Aktualisieren-Buttons gestartet.
   useEffect(() => {
-    const cacheKey = `amazon-ads-daily:${profileId}`;
+    const reportDays = dateRange === "TODAY" ? 1 : 7;
+    const cacheKey = `amazon-ads-daily:${profileId}:${reportDays}`;
     try {
       const cached = localStorage.getItem(cacheKey);
       const parsed = cached ? JSON.parse(cached) : null;
       if (Array.isArray(parsed?.rows)) applyCachedDailyRows(parsed.rows, parsed.savedAt);
-      const keywordCached = localStorage.getItem(`amazon-ads-keywords-v2:${profileId}`);
+      const keywordCached = localStorage.getItem(`amazon-ads-keywords-v2:${profileId}:${reportDays}`);
       const keywordParsed = keywordCached ? JSON.parse(keywordCached) : null;
       if (Array.isArray(keywordParsed?.rows)) applyCachedKeywordRows(keywordParsed.rows, keywordParsed.savedAt);
     } catch {}
@@ -356,9 +357,14 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
           </div>
         )}
       </div>
-      <button className="filter-btn" onClick={()=>loadReport(true)} disabled={reportLoading || keywordLoading}>
-        {reportLoading ? (metrics ? "Performance wird aktualisiert..." : "Performance wird geladen...") : "Performance aktualisieren"}
-      </button>
+      <div className="report-actions">
+        <button className="filter-btn" onClick={()=>loadReport(true,7)} disabled={reportLoading || keywordLoading}>
+          {reportLoading ? (metrics ? "Performance wird aktualisiert..." : "Performance wird geladen...") : "Performance aktualisieren"}
+        </button>
+        <button className="filter-btn" onClick={()=>{setDateRange("TODAY"); loadReport(true,1)}} disabled={reportLoading || keywordLoading}>
+          Heute aktualisieren
+        </button>
+      </div>
     </div>
     {reportError && <div className="status warn"><strong>Hinweis</strong><br/>{reportError}</div>}
     {metrics && <div className="metrics-grid">
@@ -384,9 +390,14 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
             </div>
           )}
         </div>
-        <button className="filter-btn" onClick={()=>loadKeywordReport(true)} disabled={keywordLoading || reportLoading}>
-          {keywordLoading ? "Keywords werden geladen..." : "Keywords aktualisieren"}
-        </button>
+        <div className="report-actions">
+          <button className="filter-btn" onClick={()=>loadKeywordReport(true,7)} disabled={keywordLoading || reportLoading}>
+            {keywordLoading ? "Keywords werden geladen..." : "Keywords aktualisieren"}
+          </button>
+          <button className="filter-btn" onClick={()=>{setDateRange("TODAY"); loadKeywordReport(true,1)}} disabled={keywordLoading || reportLoading}>
+            Heute aktualisieren
+          </button>
+        </div>
       </div>
       {topKeywords.length > 0 ? (
         <div className="keyword-table-wrap">
