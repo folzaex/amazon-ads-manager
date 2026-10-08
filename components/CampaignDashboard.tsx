@@ -383,6 +383,11 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       setSelectedPerformanceReport(matching.reportId);
       applyPerformanceHistory(matching, range);
     }
+    const matchingKeyword = keywordHistory.find(r => r.status === "COMPLETED" && r.days === days);
+    if (matchingKeyword) {
+      setSelectedKeywordReport(matchingKeyword.reportId);
+      applyKeywordHistory(matchingKeyword, range);
+    }
   }
 
   function selectPerformanceReport(reportId:string) {
