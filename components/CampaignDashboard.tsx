@@ -262,7 +262,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       if (!create.ok) throw new Error(created.error || "Keyword-Report konnte nicht erstellt werden.");
 
       let done = false;
-      for (let attempt=0; attempt<12; attempt++) {
+      for (let attempt=0; attempt<60; attempt++) {
         const res = await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportId=${encodeURIComponent(created.reportId)}`,{cache:"no-store"});
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Keyword-Reportstatus konnte nicht geladen werden.");
@@ -277,7 +277,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         await new Promise(r=>setTimeout(r,5000));
       }
       if (!done) {
-        setKeywordError("Amazon erstellt den Keyword-Report noch.");
+        setKeywordError("Amazon braucht ungewöhnlich lange für den Keyword-Report. Die bisherigen Keyword-Daten bleiben sichtbar.");
         return false;
       }
       return true;
