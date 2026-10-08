@@ -206,29 +206,48 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       }
 
       setReportLoading(true);
-      const create = await fetch("/api/amazon/report/create", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({profileId, days}), cache:"no-store"
-      });
-      const created = await create.json();
-      if (!create.ok) throw new Error(created.error || "Report konnte nicht erstellt werden.");
+      const pendingKey = `amazon-ads-pending-report:${profileId}:performance:${days}`;
+      let reportId = localStorage.getItem(pendingKey) || "";
+
+      if (!reportId) {
+        const create = await fetch("/api/amazon/report/create", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({profileId, days}), cache:"no-store"
+        });
+        const created = await create.json();
+        if (!create.ok) throw new Error(created.error || "Report konnte nicht erstellt werden.");
+        reportId = String(created.reportId || "");
+        if (!reportId) throw new Error("Amazon hat keine Report-ID zurückgegeben.");
+        localStorage.setItem(pendingKey, reportId);
+      }
 
       let done = false;
-      for (let attempt=0; attempt<60; attempt++) {
-        const res = await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportId=${encodeURIComponent(created.reportId)}`,{cache:"no-store"});
+      for (let attempt=0; attempt<36; attempt++) {
+        const res = await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportId=${encodeURIComponent(reportId)}`,{cache:"no-store"});
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Reportstatus konnte nicht geladen werden.");
+        if (!res.ok) {
+          if (res.status === 404) {
+            localStorage.removeItem(pendingKey);
+          }
+          throw new Error(data.error || "Reportstatus konnte nicht geladen werden.");
+        }
         if (data.status === "COMPLETED") {
           const rows = data.rows || [];
-          localStorage.setItem(cacheKey, JSON.stringify({savedAt:Date.now(),rows}));
-          applyCachedDailyRows(rows, Date.now(), range);
+          const savedAt = Date.now();
+          localStorage.setItem(cacheKey, JSON.stringify({savedAt,rows}));
+          localStorage.removeItem(pendingKey);
+          applyCachedDailyRows(rows, savedAt, range);
           done=true;
           break;
+        }
+        if (["FAILED","FAILURE","ERROR"].includes(String(data.status || "").toUpperCase())) {
+          localStorage.removeItem(pendingKey);
+          throw new Error(`Amazon-Report fehlgeschlagen (Status: ${data.status}).`);
         }
         await new Promise(r=>setTimeout(r,5000));
       }
       if (!done) {
-        setReportError("Amazon braucht ungewöhnlich lange für den 7-Tage-Report. Die bisherigen Kennzahlen bleiben sichtbar.");
+        setReportError("Amazon verarbeitet den Report noch. Die Report-ID bleibt gespeichert und wird beim nächsten Aktualisieren weiterverwendet. Die bisherigen Kennzahlen bleiben sichtbar.");
         return false;
       }
       return true;
@@ -254,30 +273,48 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       }
 
       setKeywordLoading(true);
-      const create = await fetch("/api/amazon/keywords/report/create", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({profileId, days}), cache:"no-store"
-      });
-      const created = await create.json();
-      if (!create.ok) throw new Error(created.error || "Keyword-Report konnte nicht erstellt werden.");
+      const pendingKey = `amazon-ads-pending-report:${profileId}:keywords:${days}`;
+      let reportId = localStorage.getItem(pendingKey) || "";
+
+      if (!reportId) {
+        const create = await fetch("/api/amazon/keywords/report/create", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({profileId, days}), cache:"no-store"
+        });
+        const created = await create.json();
+        if (!create.ok) throw new Error(created.error || "Keyword-Report konnte nicht erstellt werden.");
+        reportId = String(created.reportId || "");
+        if (!reportId) throw new Error("Amazon hat keine Keyword-Report-ID zurückgegeben.");
+        localStorage.setItem(pendingKey, reportId);
+      }
 
       let done = false;
-      for (let attempt=0; attempt<60; attempt++) {
-        const res = await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportId=${encodeURIComponent(created.reportId)}`,{cache:"no-store"});
+      for (let attempt=0; attempt<36; attempt++) {
+        const res = await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportId=${encodeURIComponent(reportId)}`,{cache:"no-store"});
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Keyword-Reportstatus konnte nicht geladen werden.");
+        if (!res.ok) {
+          if (res.status === 404) {
+            localStorage.removeItem(pendingKey);
+          }
+          throw new Error(data.error || "Keyword-Reportstatus konnte nicht geladen werden.");
+        }
         if (data.status === "COMPLETED") {
           const rows = data.rows || [];
           const savedAt = Date.now();
           localStorage.setItem(cacheKey, JSON.stringify({savedAt,rows}));
+          localStorage.removeItem(pendingKey);
           applyCachedKeywordRows(rows, savedAt, range);
           done=true;
           break;
         }
+        if (["FAILED","FAILURE","ERROR"].includes(String(data.status || "").toUpperCase())) {
+          localStorage.removeItem(pendingKey);
+          throw new Error(`Amazon-Keyword-Report fehlgeschlagen (Status: ${data.status}).`);
+        }
         await new Promise(r=>setTimeout(r,5000));
       }
       if (!done) {
-        setKeywordError("Amazon braucht ungewöhnlich lange für den Keyword-Report. Die bisherigen Keyword-Daten bleiben sichtbar.");
+        setKeywordError("Amazon verarbeitet den Keyword-Report noch. Die Report-ID bleibt gespeichert und wird beim nächsten Aktualisieren weiterverwendet. Die bisherigen Keyword-Daten bleiben sichtbar.");
         return false;
       }
       return true;
