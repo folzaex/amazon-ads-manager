@@ -103,6 +103,7 @@ export async function createSponsoredProductsCampaignReport(
       "Amazon-Advertising-API-ClientId": clientId,
       "Amazon-Advertising-API-Scope": profileId,
       "Content-Type": "application/vnd.createasyncreportrequest.v3+json",
+      Accept: "application/vnd.createasyncreportresponse.v3+json",
     },
     body: JSON.stringify({
       name: `BookForge SP campaigns ${startDate} - ${endDate}`,
@@ -247,7 +248,7 @@ export async function getSponsoredProductsReport(profileId: string, reportId: st
       Authorization: `Bearer ${accessToken}`,
       "Amazon-Advertising-API-ClientId": clientId,
       "Amazon-Advertising-API-Scope": profileId,
-      Accept: "application/json",
+      Accept: "application/vnd.getasyncreportresponse.v3+json",
     },
     cache: "no-store",
   });
@@ -256,7 +257,7 @@ export async function getSponsoredProductsReport(profileId: string, reportId: st
     const detail = typeof data === "object" && data ? JSON.stringify(data).slice(0,700) : "";
     throw new Error(`Amazon-Reportstatus konnte nicht geladen werden (HTTP ${res.status}). ${detail}`);
   }
-  if (data.status !== "COMPLETED") return {status: data.status, rows: []};
+  if (data.status !== "COMPLETED") return {status: data.status, failureReason: data.failureReason, rows: []};
 
   if (!data.url) throw new Error("Amazon-Report ist fertig, aber keine Download-URL wurde geliefert.");
   const fileRes = await fetch(data.url, {cache: "no-store"});
@@ -265,5 +266,5 @@ export async function getSponsoredProductsReport(profileId: string, reportId: st
   const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream("gzip"));
   const text = await new Response(stream).text();
   const parsed = JSON.parse(text);
-  return {status: data.status, rows: Array.isArray(parsed) ? parsed : []};
+  return {status: data.status, failureReason: data.failureReason, rows: Array.isArray(parsed) ? parsed : []};
 }
