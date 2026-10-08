@@ -6,7 +6,7 @@ type Profile = {id:string; amazon_profile_id:string|null; profile_name:string|nu
 type Campaign = {campaignId:string; name:string; state?:string; campaignType?:string; dailyBudget?:number; startDate?:string; endDate?:string};
 type Metrics = {impressions:number; clicks:number; cost:number; sales14d:number; purchases14d:number; unitsSoldClicks14d:number; acos:number; roas:number};
 
-type TopKeyword = {keyword:string; campaignId:string; campaignName:string; matchType:string; cost:number; clicks:number; purchases14d:number};
+type TopKeyword = {keyword:string; campaignId:string; campaignName:string; matchType:string; bid:number; cost:number; clicks:number; purchases14d:number};
 
 export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [profileId,setProfileId] = useState(() => profiles.find(p => p.country_code === "DE")?.amazon_profile_id ?? profiles[0]?.amazon_profile_id ?? "");
@@ -121,10 +121,12 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         campaignId: String(row.campaignId ?? ""),
         campaignName: String(row.campaignName ?? "Ohne Kampagne"),
         matchType: String(row.matchType ?? ""),
+        bid: Number(row.keywordBid ?? 0),
         cost: 0,
         clicks: 0,
         purchases14d: 0
       };
+      current.bid = Number(row.keywordBid ?? current.bid ?? 0);
       current.cost += Number(row.cost || 0);
       current.clicks += Number(row.clicks || 0);
       current.purchases14d += Number(row.purchases14d || 0);
@@ -161,6 +163,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         keyword, campaignId,
         campaignName: String(row.campaignName ?? "Ohne Kampagne"),
         matchType: String(row.matchType ?? ""),
+        bid: Number(row.keywordBid ?? 0),
         cost: 0, clicks: 0, purchases14d: 0
       };
       current.cost += Number(row.cost || 0);
@@ -232,7 +235,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   }
   async function loadKeywordReport(force=false) {
     if (!profileId) return;
-    const cacheKey = `amazon-ads-keywords-v1:${profileId}`;
+    const cacheKey = `amazon-ads-keywords-v2:${profileId}`;
     setKeywordError("");
     try {
       const cached = localStorage.getItem(cacheKey);
@@ -282,7 +285,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       const cached = localStorage.getItem(cacheKey);
       const parsed = cached ? JSON.parse(cached) : null;
       if (Array.isArray(parsed?.rows)) applyCachedDailyRows(parsed.rows, parsed.savedAt);
-      const keywordCached = localStorage.getItem(`amazon-ads-keywords-v1:${profileId}`);
+      const keywordCached = localStorage.getItem(`amazon-ads-keywords-v2:${profileId}`);
       const keywordParsed = keywordCached ? JSON.parse(keywordCached) : null;
       if (Array.isArray(keywordParsed?.rows)) applyCachedKeywordRows(keywordParsed.rows);
     } catch {}
@@ -366,11 +369,12 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       {topKeywords.length > 0 ? (
         <div className="keyword-table-wrap">
           <div className="keyword-header">
-            <div>Keyword</div><div>Kampagne</div><div>Kosten</div><div>Klicks</div><div>Bestellungen</div>
+            <div>Keyword</div><div>Kampagne</div><div>Gebot</div><div>Kosten</div><div>Klicks</div><div>Bestellungen</div>
           </div>
           {topKeywords.map((k,i)=><div className="keyword-row" key={`${k.campaignName}-${k.keyword}-${i}`}>
             <div className="keyword-cell keyword-name" data-label="Keyword">{k.keyword} <small className="campaign-keyword-type">{k.matchType === "EXACT" ? "Genau" : k.matchType === "PHRASE" ? "Wortgruppe" : k.matchType === "BROAD" ? "Weit" : k.matchType}</small></div>
             <div className="keyword-cell keyword-campaign" data-label="Kampagne">{k.campaignName}</div>
+            <div className="keyword-cell keyword-number" data-label="Gebot">{k.bid > 0 ? `${k.bid.toFixed(2)} €` : "–"}</div>
             <div className="keyword-cell keyword-number" data-label="Kosten">{k.cost.toFixed(2)} €</div>
             <div className="keyword-cell keyword-number" data-label="Klicks">{k.clicks}</div>
             <div className="keyword-cell keyword-number" data-label="Bestellungen">{k.purchases14d}</div>
@@ -413,7 +417,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
             <div className="campaign-keyword-list">
               {getCampaignTopKeywords(c.campaignId).map((k,i)=><div className="campaign-keyword-row" key={`${k.keyword}-${i}`}>
                 <span className="campaign-keyword-name">{k.keyword} <small className="campaign-keyword-type">{k.matchType === "EXACT" ? "Genau" : k.matchType === "PHRASE" ? "Wortgruppe" : k.matchType === "BROAD" ? "Weit" : k.matchType}</small></span>
-                <span className="campaign-keyword-cost">{k.cost.toFixed(2)} €</span>
+                <span className="campaign-keyword-bid">Gebot {k.bid > 0 ? `${k.bid.toFixed(2)} €` : "–"}</span><span className="campaign-keyword-cost">Kosten {k.cost.toFixed(2)} €</span>
                 <span className="campaign-keyword-clicks">{k.clicks} Klicks</span>
                 <span className="campaign-keyword-orders">{k.purchases14d} Best.</span>
               </div>)}
