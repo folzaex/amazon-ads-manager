@@ -14,7 +14,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState("");
   const [stateFilter,setStateFilter] = useState<"ALL"|"ENABLED"|"PAUSED">("ENABLED");
-  const [dateRange,setDateRange] = useState<"TODAY"|"YESTERDAY"|"DAY_BEFORE_YESTERDAY"|"7"|"30">("TODAY");
+  const [dateRange,setDateRange] = useState<"TODAY"|"YESTERDAY"|"DAY_BEFORE_YESTERDAY"|"7">("TODAY");
   const [metrics,setMetrics] = useState<Metrics|null>(null);
   const [performanceUpdatedAt,setPerformanceUpdatedAt] = useState<number|null>(null);
   const [campaignMetrics,setCampaignMetrics] = useState<Record<string, any>>({});
@@ -49,8 +49,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     if (range === "YESTERDAY") return 1;
     if (range === "DAY_BEFORE_YESTERDAY") return 1;
     if (range === "7") return 7;
-    if (range === "30") return 30;
-    return 30;
+    return 7;
   }
 
   function endOffsetForRange(range: typeof dateRange) {
@@ -229,7 +228,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         await new Promise(r=>setTimeout(r,5000));
       }
       if (!done) {
-        setReportError("Amazon braucht ungewöhnlich lange für den 30-Tage-Report. Die bisherigen Kennzahlen bleiben sichtbar.");
+        setReportError("Amazon braucht ungewöhnlich lange für den 7-Tage-Report. Die bisherigen Kennzahlen bleiben sichtbar.");
         return false;
       }
       return true;
@@ -348,7 +347,6 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       <button className={dateRange === "YESTERDAY" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("YESTERDAY")}>Gestern</button>
       <button className={dateRange === "DAY_BEFORE_YESTERDAY" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("DAY_BEFORE_YESTERDAY")}>Vorgestern</button>
       <button className={dateRange === "7" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("7")}>7 Tage</button>
-      <button className={dateRange === "30" ? "filter-btn active" : "filter-btn"} onClick={() => setDateRange("30")}>30 Tage</button>
 
     </div>
     </div>
