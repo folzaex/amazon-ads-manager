@@ -211,7 +211,7 @@ export async function createSponsoredProductsKeywordDailyReport(
         groupBy: ["targeting"],
         columns: [
           "date","campaignId","campaignName","keywordId","keyword","matchType",
-          "impressions","clicks","cost","purchases14d","sales14d"
+          "impressions","clicks","cost","purchases14d","sales14d","keywordBid"
         ],
         filters: [
           { field: "keywordType", values: ["BROAD","PHRASE","EXACT"] }
