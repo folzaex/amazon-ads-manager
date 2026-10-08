@@ -346,10 +346,19 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     const p=readHistory("performance");
     const k=readHistory("keywords");
     setPerformanceHistory(p); setKeywordHistory(k);
-    const pDone=p.find(x=>x.status==="COMPLETED");
-    const kDone=k.find(x=>x.status==="COMPLETED");
-    if (pDone) { setSelectedPerformanceReport(pDone.reportId); applyPerformanceHistory(pDone); }
-    if (kDone) { setSelectedKeywordReport(kDone.reportId); applyKeywordHistory(kDone); }
+    // Immer den neuesten gespeicherten Report auswählen – auch wenn er noch PROCESSING ist.
+    // Sonst zeigt das Select zwar "wird verarbeitet", aber selected...Report bleibt leer
+    // und der zugehörige "Status prüfen"-Button kann nicht gerendert werden.
+    const pSelected=p.find(x=>x.status==="COMPLETED") || p[0];
+    const kSelected=k.find(x=>x.status==="COMPLETED") || k[0];
+    if (pSelected) {
+      setSelectedPerformanceReport(pSelected.reportId);
+      if (pSelected.status==="COMPLETED") applyPerformanceHistory(pSelected);
+    }
+    if (kSelected) {
+      setSelectedKeywordReport(kSelected.reportId);
+      if (kSelected.status==="COMPLETED") applyKeywordHistory(kSelected);
+    }
   }
 
   useEffect(() => {
