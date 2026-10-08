@@ -46,3 +46,6 @@ p{line-height:1.6;color:#4b5563}
 .campaign-keywords{margin-top:12px;padding-top:10px;border-top:1px solid #e5e7eb}.campaign-keywords>strong{font-size:14px}.campaign-keyword-list{margin-top:7px}.campaign-keyword-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;align-items:center;padding:6px 0;font-size:13px}.campaign-keyword-name{font-weight:600;overflow-wrap:anywhere}.campaign-keyword-bid,.campaign-keyword-cost,.campaign-keyword-clicks,.campaign-keyword-orders{white-space:nowrap;color:#4b5563}@media(max-width:700px){.campaign-keywords{margin-top:10px;padding-top:9px}.campaign-keyword-row{grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;padding:7px 0}.campaign-keyword-name{grid-column:1}.campaign-keyword-bid{grid-column:2;grid-row:1;font-size:12px;color:#6b7280}.campaign-keyword-cost{grid-column:2;grid-row:2;font-weight:600;color:#111827}.campaign-keyword-clicks{grid-column:1;font-size:12px;color:#6b7280}.campaign-keyword-orders{grid-column:2;font-size:12px;color:#6b7280;text-align:right}}
 
 .campaign-keyword-type{font-size:11px;font-weight:500;color:#6b7280;margin-left:5px}
+
+.report-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.report-actions .filter-btn{flex:1}
+@media(max-width:700px){.report-actions{width:100%;flex-direction:column}.report-actions .filter-btn{width:100%}}
