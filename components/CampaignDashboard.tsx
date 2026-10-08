@@ -289,16 +289,10 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     }
   }
 
-  // Reports werden bewusst nacheinander geladen. Amazon begrenzt parallele
-  // Reporting-Jobs pro Werbetreibendem; dadurch blockieren sich Performance-
-  // und Keyword-Report nicht mehr gegenseitig.
-  useEffect(() => {
-    if (!profileId) return;
-    (async () => {
-      const performanceDone = await loadReport(false);
-      if (performanceDone) await loadKeywordReport(false);
-    })();
-  }, [profileId]);
+  // Beim Start der App werden keine neuen Amazon-Reports automatisch angefordert.
+  // Vorhandene lokale Daten werden unten weiterhin aus dem Cache geladen.
+  // Neue Performance- und Keyword-Reports werden ausschließlich über die
+  // jeweiligen Aktualisieren-Buttons gestartet.
   useEffect(() => {
     const cacheKey = `amazon-ads-daily:${profileId}`;
     try {
