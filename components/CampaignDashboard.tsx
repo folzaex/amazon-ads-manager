@@ -7,6 +7,15 @@ type Campaign = {campaignId:string; name:string; state?:string; campaignType?:st
 type Metrics = {impressions:number; clicks:number; cost:number; sales14d:number; purchases14d:number; unitsSoldClicks14d:number; acos:number; roas:number};
 
 type TopKeyword = {keyword:string; campaignId:string; campaignName:string; matchType:string; bid:number; cost:number; clicks:number; purchases14d:number};
+type ReportHistoryItem = {
+  id:string;
+  reportId:string;
+  days:number;
+  requestedAt:number;
+  completedAt?:number;
+  status:"PROCESSING"|"COMPLETED"|"FAILED";
+  rows?:any[];
+};
 
 export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [profileId,setProfileId] = useState(() => profiles.find(p => p.country_code === "DE")?.amazon_profile_id ?? profiles[0]?.amazon_profile_id ?? "");
@@ -27,6 +36,10 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [keywordError,setKeywordError] = useState("");
   const [keywordRows,setKeywordRows] = useState<TopKeyword[]>([]);
   const [keywordUpdatedAt,setKeywordUpdatedAt] = useState<number|null>(null);
+  const [performanceHistory,setPerformanceHistory] = useState<ReportHistoryItem[]>([]);
+  const [keywordHistory,setKeywordHistory] = useState<ReportHistoryItem[]>([]);
+  const [selectedPerformanceReport,setSelectedPerformanceReport] = useState("");
+  const [selectedKeywordReport,setSelectedKeywordReport] = useState("");
 
   async function loadCampaigns(id=profileId) {
     if (!id) return;
@@ -190,158 +203,168 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     if (savedAt) setPerformanceUpdatedAt(savedAt);
   }
 
-  async function loadReport(force=false, days=7, range: typeof dateRange = dateRange): Promise<boolean> {
-    if (!profileId) return false;
-    const cacheKey = `amazon-ads-daily:v3:${profileId}:${days}`;
-    setReportError("");
+  function historyKey(type:"performance"|"keywords") {
+    return `amazon-ads-history:v1:${type}:${profileId}`;
+  }
 
+  function readHistory(type:"performance"|"keywords") {
     try {
-      const cached = localStorage.getItem(cacheKey);
-      if (!force && cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed?.rows) && parsed.savedAt) {
-          applyCachedDailyRows(parsed.rows, parsed.savedAt, range);
-          if (Date.now() - parsed.savedAt < 10 * 60 * 1000) return true;
-        }
+      const raw=localStorage.getItem(historyKey(type));
+      const parsed=raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed as ReportHistoryItem[] : [];
+    } catch { return []; }
+  }
+
+  function writeHistory(type:"performance"|"keywords", items:ReportHistoryItem[]) {
+    const trimmed=items.slice(0,10);
+    localStorage.setItem(historyKey(type),JSON.stringify(trimmed));
+    if (type==="performance") setPerformanceHistory(trimmed);
+    else setKeywordHistory(trimmed);
+  }
+
+  function addPendingHistory(type:"performance"|"keywords", reportId:string, days:number) {
+    const item:ReportHistoryItem={id:`${reportId}-${Date.now()}`,reportId,days,requestedAt:Date.now(),status:"PROCESSING"};
+    writeHistory(type,[item,...readHistory(type).filter(x=>x.reportId!==reportId)]);
+    return item;
+  }
+
+  function updateHistory(type:"performance"|"keywords", reportId:string, patch:Partial<ReportHistoryItem>) {
+    writeHistory(type,readHistory(type).map(x=>x.reportId===reportId?{...x,...patch}:x));
+  }
+
+  function applyPerformanceHistory(item:ReportHistoryItem, range:typeof dateRange = dateRange) {
+    if (!item.rows) return;
+    applyCachedDailyRows(item.rows,item.completedAt || item.requestedAt,range);
+  }
+
+  function applyKeywordHistory(item:ReportHistoryItem, range:typeof dateRange = dateRange) {
+    if (!item.rows) return;
+    applyCachedKeywordRows(item.rows,item.completedAt || item.requestedAt,range);
+  }
+
+  async function checkPerformanceReport(item:ReportHistoryItem, range:typeof dateRange = dateRange) {
+    setReportError("");
+    try {
+      const res=await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportId=${encodeURIComponent(item.reportId)}`,{cache:"no-store"});
+      const data=await res.json();
+      if (!res.ok) throw new Error(data.error || "Reportstatus konnte nicht geladen werden.");
+      const status=String(data.status||"PROCESSING").toUpperCase();
+      if (status==="COMPLETED") {
+        const rows=data.rows||[];
+        const completedAt=Date.now();
+        updateHistory("performance",item.reportId,{status:"COMPLETED",completedAt,rows});
+        applyCachedDailyRows(rows,completedAt,range);
+        setSelectedPerformanceReport(item.reportId);
+        return true;
       }
+      if (["FAILED","FAILURE","ERROR"].includes(status)) {
+        updateHistory("performance",item.reportId,{status:"FAILED"});
+        throw new Error(`Amazon-Report fehlgeschlagen (Status: ${status}).`);
+      }
+      updateHistory("performance",item.reportId,{status:"PROCESSING"});
+      setReportError("Der Report wird bei Amazon noch verarbeitet. Du kannst später erneut auf „Status prüfen“ klicken.");
+      return false;
+    } catch(e) {
+      setReportError(e instanceof Error ? e.message : "Unbekannter Fehler.");
+      return false;
+    }
+  }
 
-      setReportLoading(true);
-      const pendingKey = `amazon-ads-pending-report:v2:${profileId}:performance:${days}`;
-      let reportId = localStorage.getItem(pendingKey) || "";
+  async function checkKeywordReport(item:ReportHistoryItem, range:typeof dateRange = dateRange) {
+    setKeywordError("");
+    try {
+      const res=await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportId=${encodeURIComponent(item.reportId)}`,{cache:"no-store"});
+      const data=await res.json();
+      if (!res.ok) throw new Error(data.error || "Keyword-Reportstatus konnte nicht geladen werden.");
+      const status=String(data.status||"PROCESSING").toUpperCase();
+      if (status==="COMPLETED") {
+        const rows=data.rows||[];
+        const completedAt=Date.now();
+        updateHistory("keywords",item.reportId,{status:"COMPLETED",completedAt,rows});
+        applyCachedKeywordRows(rows,completedAt,range);
+        setSelectedKeywordReport(item.reportId);
+        return true;
+      }
+      if (["FAILED","FAILURE","ERROR"].includes(status)) {
+        updateHistory("keywords",item.reportId,{status:"FAILED"});
+        throw new Error(`Amazon-Keyword-Report fehlgeschlagen (Status: ${status}).`);
+      }
+      updateHistory("keywords",item.reportId,{status:"PROCESSING"});
+      setKeywordError("Der Keyword-Report wird bei Amazon noch verarbeitet. Du kannst später erneut auf „Status prüfen“ klicken.");
+      return false;
+    } catch(e) {
+      setKeywordError(e instanceof Error ? e.message : "Unbekannter Fehler.");
+      return false;
+    }
+  }
 
-      if (!reportId) {
-        const create = await fetch("/api/amazon/report/create", {
-          method:"POST", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({profileId, days}), cache:"no-store"
-        });
-        const created = await create.json();
-        if (!create.ok) throw new Error(created.error || "Report konnte nicht erstellt werden.");
-        reportId = String(created.reportId || "");
+  async function loadReport(force=false, days=7, range:typeof dateRange = dateRange):Promise<boolean> {
+    if (!profileId) return false;
+    setReportError(""); setReportLoading(true);
+    try {
+      let item=readHistory("performance").find(x=>x.status==="PROCESSING" && x.days===days);
+      if (!item) {
+        const create=await fetch("/api/amazon/report/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId,days}),cache:"no-store"});
+        const created=await create.json();
+        if (!create.ok) throw new Error(created.error||"Report konnte nicht erstellt werden.");
+        const reportId=String(created.reportId||"");
         if (!reportId) throw new Error("Amazon hat keine Report-ID zurückgegeben.");
-        localStorage.setItem(pendingKey, reportId);
+        item=addPendingHistory("performance",reportId,days);
       }
-
-      let done = false;
-      for (let attempt=0; attempt<36; attempt++) {
-        const res = await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportId=${encodeURIComponent(reportId)}`,{cache:"no-store"});
-        const data = await res.json();
-        if (!res.ok) {
-          if (res.status === 404) {
-            localStorage.removeItem(pendingKey);
-          }
-          throw new Error(data.error || "Reportstatus konnte nicht geladen werden.");
-        }
-        if (data.status === "COMPLETED") {
-          const rows = data.rows || [];
-          const savedAt = Date.now();
-          localStorage.setItem(cacheKey, JSON.stringify({savedAt,rows}));
-          localStorage.removeItem(pendingKey);
-          applyCachedDailyRows(rows, savedAt, range);
-          done=true;
-          break;
-        }
-        if (["FAILED","FAILURE","ERROR"].includes(String(data.status || "").toUpperCase())) {
-          localStorage.removeItem(pendingKey);
-          throw new Error(`Amazon-Report fehlgeschlagen (Status: ${data.status}).`);
-        }
-        await new Promise(r=>setTimeout(r,5000));
-      }
-      if (!done) {
-        setReportError("Amazon verarbeitet den Report noch. Die Report-ID bleibt gespeichert und wird beim nächsten Aktualisieren weiterverwendet. Die bisherigen Kennzahlen bleiben sichtbar.");
-        return false;
-      }
+      setSelectedPerformanceReport(item.reportId);
+      await checkPerformanceReport(item,range);
       return true;
     } catch(e) {
       setReportError(e instanceof Error ? e.message : "Unbekannter Fehler.");
       return false;
-    } finally {
-      setReportLoading(false);
-    }
+    } finally { setReportLoading(false); }
   }
-  async function loadKeywordReport(force=false, days=7, range: typeof dateRange = dateRange): Promise<boolean> {
+
+  async function loadKeywordReport(force=false, days=7, range:typeof dateRange = dateRange):Promise<boolean> {
     if (!profileId) return false;
-    const cacheKey = `amazon-ads-keywords-v3:${profileId}:${days}`;
-    setKeywordError("");
+    setKeywordError(""); setKeywordLoading(true);
     try {
-      const cached = localStorage.getItem(cacheKey);
-      if (!force && cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed?.rows) && parsed.savedAt) {
-          applyCachedKeywordRows(parsed.rows, parsed.savedAt, range);
-          if (Date.now() - parsed.savedAt < 10 * 60 * 1000) return true;
-        }
-      }
-
-      setKeywordLoading(true);
-      const pendingKey = `amazon-ads-pending-report:v2:${profileId}:keywords:${days}`;
-      let reportId = localStorage.getItem(pendingKey) || "";
-
-      if (!reportId) {
-        const create = await fetch("/api/amazon/keywords/report/create", {
-          method:"POST", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({profileId, days}), cache:"no-store"
-        });
-        const created = await create.json();
-        if (!create.ok) throw new Error(created.error || "Keyword-Report konnte nicht erstellt werden.");
-        reportId = String(created.reportId || "");
+      let item=readHistory("keywords").find(x=>x.status==="PROCESSING" && x.days===days);
+      if (!item) {
+        const create=await fetch("/api/amazon/keywords/report/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId,days}),cache:"no-store"});
+        const created=await create.json();
+        if (!create.ok) throw new Error(created.error||"Keyword-Report konnte nicht erstellt werden.");
+        const reportId=String(created.reportId||"");
         if (!reportId) throw new Error("Amazon hat keine Keyword-Report-ID zurückgegeben.");
-        localStorage.setItem(pendingKey, reportId);
+        item=addPendingHistory("keywords",reportId,days);
       }
-
-      let done = false;
-      for (let attempt=0; attempt<36; attempt++) {
-        const res = await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportId=${encodeURIComponent(reportId)}`,{cache:"no-store"});
-        const data = await res.json();
-        if (!res.ok) {
-          if (res.status === 404) {
-            localStorage.removeItem(pendingKey);
-          }
-          throw new Error(data.error || "Keyword-Reportstatus konnte nicht geladen werden.");
-        }
-        if (data.status === "COMPLETED") {
-          const rows = data.rows || [];
-          const savedAt = Date.now();
-          localStorage.setItem(cacheKey, JSON.stringify({savedAt,rows}));
-          localStorage.removeItem(pendingKey);
-          applyCachedKeywordRows(rows, savedAt, range);
-          done=true;
-          break;
-        }
-        if (["FAILED","FAILURE","ERROR"].includes(String(data.status || "").toUpperCase())) {
-          localStorage.removeItem(pendingKey);
-          throw new Error(`Amazon-Keyword-Report fehlgeschlagen (Status: ${data.status}).`);
-        }
-        await new Promise(r=>setTimeout(r,5000));
-      }
-      if (!done) {
-        setKeywordError("Amazon verarbeitet den Keyword-Report noch. Die Report-ID bleibt gespeichert und wird beim nächsten Aktualisieren weiterverwendet. Die bisherigen Keyword-Daten bleiben sichtbar.");
-        return false;
-      }
+      setSelectedKeywordReport(item.reportId);
+      await checkKeywordReport(item,range);
       return true;
     } catch(e) {
       setKeywordError(e instanceof Error ? e.message : "Unbekannter Fehler.");
       return false;
-    } finally {
-      setKeywordLoading(false);
-    }
+    } finally { setKeywordLoading(false); }
   }
 
-  // Beim Start der App werden keine neuen Amazon-Reports automatisch angefordert.
-  // Vorhandene lokale Daten werden unten weiterhin aus dem Cache geladen.
-  // Neue Performance- und Keyword-Reports werden ausschließlich über die
-  // jeweiligen Aktualisieren-Buttons gestartet.
+  function loadHistories() {
+    const p=readHistory("performance");
+    const k=readHistory("keywords");
+    setPerformanceHistory(p); setKeywordHistory(k);
+    const pDone=p.find(x=>x.status==="COMPLETED");
+    const kDone=k.find(x=>x.status==="COMPLETED");
+    if (pDone) { setSelectedPerformanceReport(pDone.reportId); applyPerformanceHistory(pDone); }
+    if (kDone) { setSelectedKeywordReport(kDone.reportId); applyKeywordHistory(kDone); }
+  }
+
   useEffect(() => {
-    const reportDays = dateRange === "TODAY" ? 1 : 7;
-    const cacheKey = `amazon-ads-daily:v3:${profileId}:${reportDays}`;
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      const parsed = cached ? JSON.parse(cached) : null;
-      if (Array.isArray(parsed?.rows)) applyCachedDailyRows(parsed.rows, parsed.savedAt);
-      const keywordCached = localStorage.getItem(`amazon-ads-keywords-v3:${profileId}:${reportDays}`);
-      const keywordParsed = keywordCached ? JSON.parse(keywordCached) : null;
-      if (Array.isArray(keywordParsed?.rows)) applyCachedKeywordRows(keywordParsed.rows, keywordParsed.savedAt);
-    } catch {}
-  }, [dateRange, profileId]);
+    loadHistories();
+  }, [profileId]);
+
+  useEffect(() => {
+    const p=performanceHistory.find(x=>x.reportId===selectedPerformanceReport);
+    if (p?.status==="COMPLETED") applyPerformanceHistory(p);
+  }, [selectedPerformanceReport]);
+
+  useEffect(() => {
+    const k=keywordHistory.find(x=>x.reportId===selectedKeywordReport);
+    if (k?.status==="COMPLETED") applyKeywordHistory(k);
+  }, [selectedKeywordReport]);
 
   const selected = profiles.find(p => p.amazon_profile_id === profileId);
   const filteredCampaigns = stateFilter === "ALL" ? campaigns : campaigns.filter(c => c.state === stateFilter);
@@ -396,13 +419,23 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       </div>
       <div className="report-actions">
         <button className="filter-btn" onClick={()=>loadReport(true,7)} disabled={reportLoading || keywordLoading}>
-          {reportLoading ? (metrics ? "Performance wird aktualisiert..." : "Performance wird geladen...") : "Performance aktualisieren"}
+          {reportLoading ? "Report wird angefordert..." : "Neuen 7-Tage-Report anfordern"}
         </button>
         <button className="filter-btn" onClick={()=>{setDateRange("TODAY"); loadReport(true,1,"TODAY")}} disabled={reportLoading || keywordLoading}>
-          Heute aktualisieren
+          Heute anfordern
         </button>
       </div>
     </div>
+    {performanceHistory.length > 0 && <div className="report-history">
+      <label htmlFor="performance-report">Performance-Report</label>
+      <select id="performance-report" value={selectedPerformanceReport} onChange={e=>setSelectedPerformanceReport(e.target.value)}>
+        {performanceHistory.map(r=><option key={r.id} value={r.reportId}>
+          {new Date(r.requestedAt).toLocaleString("de-DE")} · {r.days} Tag{r.days===1?"":"e"} · {r.status==="COMPLETED"?"fertig":r.status==="PROCESSING"?"wird verarbeitet":"fehlgeschlagen"}
+        </option>)}
+      </select>
+      {performanceHistory.find(r=>r.reportId===selectedPerformanceReport)?.status==="PROCESSING" &&
+        <button className="filter-btn" onClick={()=>{const r=performanceHistory.find(x=>x.reportId===selectedPerformanceReport); if(r) checkPerformanceReport(r)}} disabled={reportLoading}>Status prüfen</button>}
+    </div>}
     {reportError && <div className="status warn"><strong>Hinweis</strong><br/>{reportError}</div>}
     {metrics && <div className="metrics-grid">
       <div className="metric-card"><span>Ausgaben</span><strong>{metrics.cost.toFixed(2)} €</strong></div>
@@ -429,13 +462,23 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
         </div>
         <div className="report-actions">
           <button className="filter-btn" onClick={()=>loadKeywordReport(true,7)} disabled={keywordLoading || reportLoading}>
-            {keywordLoading ? "Keywords werden geladen..." : "Keywords aktualisieren"}
+            {keywordLoading ? "Report wird angefordert..." : "Neuen 7-Tage-Report anfordern"}
           </button>
           <button className="filter-btn" onClick={()=>{setDateRange("TODAY"); loadKeywordReport(true,1,"TODAY")}} disabled={keywordLoading || reportLoading}>
-            Heute aktualisieren
+            Heute anfordern
           </button>
         </div>
       </div>
+      {keywordHistory.length > 0 && <div className="report-history">
+        <label htmlFor="keyword-report">Keyword-Report</label>
+        <select id="keyword-report" value={selectedKeywordReport} onChange={e=>setSelectedKeywordReport(e.target.value)}>
+          {keywordHistory.map(r=><option key={r.id} value={r.reportId}>
+            {new Date(r.requestedAt).toLocaleString("de-DE")} · {r.days} Tag{r.days===1?"":"e"} · {r.status==="COMPLETED"?"fertig":r.status==="PROCESSING"?"wird verarbeitet":"fehlgeschlagen"}
+          </option>)}
+        </select>
+        {keywordHistory.find(r=>r.reportId===selectedKeywordReport)?.status==="PROCESSING" &&
+          <button className="filter-btn" onClick={()=>{const r=keywordHistory.find(x=>x.reportId===selectedKeywordReport); if(r) checkKeywordReport(r)}} disabled={keywordLoading}>Status prüfen</button>}
+      </div>}
       {topKeywords.length > 0 ? (
         <div className="keyword-table-wrap">
           <div className="keyword-header">
