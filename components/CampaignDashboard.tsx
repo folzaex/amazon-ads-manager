@@ -367,6 +367,8 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   }, [selectedKeywordReport]);
 
   const selected = profiles.find(p => p.amazon_profile_id === profileId);
+  const selectedPerformanceHistoryItem = performanceHistory.find(r => r.reportId === selectedPerformanceReport);
+  const selectedKeywordHistoryItem = keywordHistory.find(r => r.reportId === selectedKeywordReport);
   const filteredCampaigns = stateFilter === "ALL" ? campaigns : campaigns.filter(c => c.state === stateFilter);
   const sortedCampaigns = [...filteredCampaigns].sort((a,b) => {
     const av = Number(campaignMetrics[a.campaignId]?.[sortBy] ?? 0);
@@ -433,8 +435,13 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
           {new Date(r.requestedAt).toLocaleString("de-DE")} · {r.days} Tag{r.days===1?"":"e"} · {r.status==="COMPLETED"?"fertig":r.status==="PROCESSING"?"wird verarbeitet":"fehlgeschlagen"}
         </option>)}
       </select>
-      {performanceHistory.find(r=>r.reportId===selectedPerformanceReport)?.status==="PROCESSING" &&
-        <button className="filter-btn" onClick={()=>{const r=performanceHistory.find(x=>x.reportId===selectedPerformanceReport); if(r) checkPerformanceReport(r)}} disabled={reportLoading}>Status prüfen</button>}
+      {selectedPerformanceHistoryItem?.status==="PROCESSING" && (
+        <div className="report-status-action">
+          <button className="filter-btn status-check-btn" onClick={()=>checkPerformanceReport(selectedPerformanceHistoryItem)} disabled={reportLoading}>
+            {reportLoading ? "Prüfe Status..." : "Status prüfen"}
+          </button>
+        </div>
+      )}
     </div>}
     {reportError && <div className="status warn"><strong>Hinweis</strong><br/>{reportError}</div>}
     {metrics && <div className="metrics-grid">
@@ -476,8 +483,13 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
             {new Date(r.requestedAt).toLocaleString("de-DE")} · {r.days} Tag{r.days===1?"":"e"} · {r.status==="COMPLETED"?"fertig":r.status==="PROCESSING"?"wird verarbeitet":"fehlgeschlagen"}
           </option>)}
         </select>
-        {keywordHistory.find(r=>r.reportId===selectedKeywordReport)?.status==="PROCESSING" &&
-          <button className="filter-btn" onClick={()=>{const r=keywordHistory.find(x=>x.reportId===selectedKeywordReport); if(r) checkKeywordReport(r)}} disabled={keywordLoading}>Status prüfen</button>}
+        {selectedKeywordHistoryItem?.status==="PROCESSING" && (
+          <div className="report-status-action">
+            <button className="filter-btn status-check-btn" onClick={()=>checkKeywordReport(selectedKeywordHistoryItem)} disabled={keywordLoading}>
+              {keywordLoading ? "Prüfe Status..." : "Status prüfen"}
+            </button>
+          </div>
+        )}
       </div>}
       {topKeywords.length > 0 ? (
         <div className="keyword-table-wrap">
