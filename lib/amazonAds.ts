@@ -153,6 +153,7 @@ export async function createSponsoredProductsCampaignDailyReport(
       "Amazon-Advertising-API-ClientId": clientId,
       "Amazon-Advertising-API-Scope": profileId,
       "Content-Type": "application/vnd.createasyncreportrequest.v3+json",
+      Accept: "application/vnd.createasyncreportresponse.v3+json",
     },
     body: JSON.stringify({
       name: `BookForge SP daily campaigns ${startDate} - ${endDate}`,
@@ -202,6 +203,7 @@ export async function createSponsoredProductsKeywordDailyReport(
       "Amazon-Advertising-API-ClientId": clientId,
       "Amazon-Advertising-API-Scope": profileId,
       "Content-Type": "application/vnd.createasyncreportrequest.v3+json",
+      Accept: "application/vnd.createasyncreportresponse.v3+json",
     },
     body: JSON.stringify({
       name: `BookForge SP daily keywords ${startDate} - ${endDate}`,
