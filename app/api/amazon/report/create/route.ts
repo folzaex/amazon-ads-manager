@@ -13,8 +13,8 @@ export async function POST(req: NextRequest) {
 
     const end = new Date();
     const start = new Date(end);
-    // Amazon erlaubt maximal 31 Tage pro Report.
-    start.setUTCDate(start.getUTCDate() - 30);
+    // Für schnellere Reports laden wir nur die letzten 7 Tage.
+    start.setUTCDate(start.getUTCDate() - 6);
 
     const startDate = format(start);
     const endDate = format(end);
