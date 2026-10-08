@@ -192,7 +192,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
 
   async function loadReport(force=false, days=7, range: typeof dateRange = dateRange): Promise<boolean> {
     if (!profileId) return false;
-    const cacheKey = `amazon-ads-daily:${profileId}:${days}`;
+    const cacheKey = `amazon-ads-daily:v3:${profileId}:${days}`;
     setReportError("");
 
     try {
@@ -206,7 +206,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       }
 
       setReportLoading(true);
-      const pendingKey = `amazon-ads-pending-report:${profileId}:performance:${days}`;
+      const pendingKey = `amazon-ads-pending-report:v2:${profileId}:performance:${days}`;
       let reportId = localStorage.getItem(pendingKey) || "";
 
       if (!reportId) {
@@ -260,7 +260,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   }
   async function loadKeywordReport(force=false, days=7, range: typeof dateRange = dateRange): Promise<boolean> {
     if (!profileId) return false;
-    const cacheKey = `amazon-ads-keywords-v2:${profileId}:${days}`;
+    const cacheKey = `amazon-ads-keywords-v3:${profileId}:${days}`;
     setKeywordError("");
     try {
       const cached = localStorage.getItem(cacheKey);
@@ -273,7 +273,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       }
 
       setKeywordLoading(true);
-      const pendingKey = `amazon-ads-pending-report:${profileId}:keywords:${days}`;
+      const pendingKey = `amazon-ads-pending-report:v2:${profileId}:keywords:${days}`;
       let reportId = localStorage.getItem(pendingKey) || "";
 
       if (!reportId) {
@@ -332,12 +332,12 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   // jeweiligen Aktualisieren-Buttons gestartet.
   useEffect(() => {
     const reportDays = dateRange === "TODAY" ? 1 : 7;
-    const cacheKey = `amazon-ads-daily:${profileId}:${reportDays}`;
+    const cacheKey = `amazon-ads-daily:v3:${profileId}:${reportDays}`;
     try {
       const cached = localStorage.getItem(cacheKey);
       const parsed = cached ? JSON.parse(cached) : null;
       if (Array.isArray(parsed?.rows)) applyCachedDailyRows(parsed.rows, parsed.savedAt);
-      const keywordCached = localStorage.getItem(`amazon-ads-keywords-v2:${profileId}:${reportDays}`);
+      const keywordCached = localStorage.getItem(`amazon-ads-keywords-v3:${profileId}:${reportDays}`);
       const keywordParsed = keywordCached ? JSON.parse(keywordCached) : null;
       if (Array.isArray(keywordParsed?.rows)) applyCachedKeywordRows(keywordParsed.rows, keywordParsed.savedAt);
     } catch {}
