@@ -434,7 +434,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     } finally { setSearchTermsLoading(false); }
   }
 
-  const searchTermSummary = Object.values(searchTermsRows.reduce((acc:Record<string,any>, row:any) => {
+  const searchTermSummary: any[] = (Object.values(searchTermsRows.reduce((acc:Record<string,any>, row:any) => {
     const term = String(row.searchTerm || "").trim();
     if (!term) return acc;
     const campaignId = String(row.campaignId || "");
@@ -449,7 +449,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     acc[key].orders += Number(row.purchases14d || 0);
     acc[key].sales += Number(row.sales14d || 0);
     return acc;
-  }, {})).sort((a:any,b:any) => b.orders-a.orders || b.sales-a.sales || b.clicks-a.clicks);
+  }, {})) as any[]).sort((a:any,b:any) => b.orders-a.orders || b.sales-a.sales || b.clicks-a.clicks);
 
   useEffect(() => {
     loadHistories();
