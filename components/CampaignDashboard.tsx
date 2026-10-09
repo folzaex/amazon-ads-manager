@@ -32,6 +32,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [sortBy,setSortBy] = useState<"cost"|"purchases14d"|"clicks"|"impressions">("cost");
   const [sortDirection,setSortDirection] = useState<"desc"|"asc">("desc");
   const [topKeywords,setTopKeywords] = useState<TopKeyword[]>([]);
+  const [keywordSortBy,setKeywordSortBy] = useState<"cost"|"bid">("cost");
   const [keywordLoading,setKeywordLoading] = useState(false);
   const [keywordError,setKeywordError] = useState("");
   const [keywordRows,setKeywordRows] = useState<TopKeyword[]>([]);
@@ -152,9 +153,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       byKeyword.set(id,current);
     }
 
-    return [...byKeyword.values()]
-      .sort((a,b) => b.cost - a.cost)
-      .slice(0,3);
+    return [...byKeyword.values()];
   }
 
   function applyCachedKeywordRows(rows:any[], savedAt?: number, range: typeof dateRange = dateRange) {
@@ -195,12 +194,15 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     setKeywordRows([...byKeyword.values()]);
   }
 
-  function getCampaignTopKeywords(campaignId:string) {
-    return keywordRows
-      .filter(k => k.campaignId === campaignId)
-      .sort((a,b) => b.cost - a.cost)
-      .slice(0,3);
+  function sortKeywords(rows:TopKeyword[]) {
+    return [...rows].sort((a,b) => keywordSortBy === "bid" ? b.bid - a.bid : b.cost - a.cost);
   }
+
+  function getCampaignTopKeywords(campaignId:string) {
+    return sortKeywords(keywordRows.filter(k => k.campaignId === campaignId)).slice(0,3);
+  }
+
+  const sortedTopKeywords = sortKeywords(topKeywords).slice(0,3);
 
   function applyCachedDailyRows(rows:any[], savedAt?: number, range: typeof dateRange = dateRange) {
     const result = aggregateDailyRows(rows,range);
@@ -609,7 +611,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     <div className="top-keywords">
       <div className="top-keywords-head">
         <div>
-          <strong>Top 3 Keywords nach Kosten</strong>
+          <strong>Top 3 Keywords nach {keywordSortBy === "bid" ? "Gebot" : "Kosten"}</strong>
           {keywordUpdatedAt && (
             <div className="performance-timestamp">
               Datenstand: {new Date(keywordUpdatedAt).toLocaleString("de-DE", {
@@ -619,6 +621,11 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
           )}
         </div>
         <div className="report-actions">
+          <label htmlFor="keyword-sort">Sortieren nach</label>
+          <select id="keyword-sort" value={keywordSortBy} onChange={e=>setKeywordSortBy(e.target.value as "cost"|"bid")}>
+            <option value="cost">Kosten</option>
+            <option value="bid">Gebot</option>
+          </select>
           <button className="filter-btn" onClick={()=>loadKeywordReport(true,7)} disabled={keywordLoading || reportLoading}>
             {keywordLoading ? "Report wird angefordert..." : "Neuen 7-Tage-Report anfordern"}
           </button>
@@ -652,7 +659,7 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
           <div className="keyword-header">
             <div>Keyword</div><div>Kampagne</div><div>Gebot</div><div>Kosten</div><div>Klicks</div><div>Bestellungen</div>
           </div>
-          {topKeywords.map((k,i)=><div className="keyword-row" key={`${k.campaignName}-${k.keyword}-${i}`}>
+          {sortedTopKeywords.map((k,i)=><div className="keyword-row" key={`${k.campaignName}-${k.keyword}-${i}`}>
             <div className="keyword-cell keyword-name" data-label="Keyword">{k.keyword} <small className="campaign-keyword-type">{k.matchType === "EXACT" ? "Genau" : k.matchType === "PHRASE" ? "Wortgruppe" : k.matchType === "BROAD" ? "Weit" : k.matchType}</small></div>
             <div className="keyword-cell keyword-campaign" data-label="Kampagne">{k.campaignName}</div>
             <div className="keyword-cell keyword-number" data-label="Gebot">{k.bid > 0 ? `${k.bid.toFixed(2)} €` : "–"}</div>
