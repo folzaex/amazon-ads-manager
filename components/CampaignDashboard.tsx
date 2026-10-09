@@ -533,9 +533,9 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     </div>
 
     <div className="search-terms-entry">
-      <button className="filter-btn" onClick={() => setSearchTermsOpen(true)}>
-        Suchbegriffe & beste Performance öffnen
-      </button>
+      <a className="filter-btn search-terms-link" href={`/search-terms?profileId=${encodeURIComponent(profileId)}`}>
+        Suchbegriffe & beste Performance öffnen →
+      </a>
     </div>
     <div className="filter-row">
     <div className="campaign-filter">
