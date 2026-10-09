@@ -85,3 +85,51 @@ p{line-height:1.6;color:#4b5563}
  .search-terms-row span:nth-child(2){grid-column:1/-1;font-weight:500;color:#374151}
  .search-terms-row span:nth-child(2)::before{content:"Kampagne"}
 }
+
+.search-terms-page{max-width:1100px;margin:24px auto;padding:20px;background:#fff;color:#111827;border:1px solid #e5e7eb;border-radius:18px}
+.search-terms-page .search-terms-back{display:inline-flex;width:auto;margin:0 0 24px;text-decoration:none;padding:10px 14px}
+.search-terms-page-header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:22px}
+.search-terms-page-header h1{font-size:clamp(27px,4vw,38px);line-height:1.15;margin:0 0 10px}
+.search-terms-page-header p{max-width:720px;margin:0;color:#6b7280;line-height:1.55}
+.search-terms-eyebrow{font-size:12px;font-weight:800;letter-spacing:.1em;color:#64748b;margin:0 0 8px!important}
+.search-terms-period{white-space:nowrap;border-radius:999px;background:#eff6ff;color:#1d4ed8;padding:9px 13px;font-weight:700;font-size:13px}
+.search-terms-controls{display:flex;align-items:end;gap:12px;flex-wrap:wrap;padding:16px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px}
+.search-terms-controls label,.search-terms-table-tools label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:#4b5563;flex:1;min-width:220px}
+.search-terms-controls select,.search-terms-table-tools select,.search-terms-table-tools input{width:100%;min-height:44px;padding:9px 12px;border:1px solid #d1d5db;border-radius:9px;background:#fff;color:#111827;font:inherit}
+.search-terms-status-pill{display:inline-block;margin:14px 0;padding:8px 12px;border-radius:9px;background:#f3f4f6;color:#374151}
+.search-terms-status-pill.completed{background:#dcfce7;color:#166534}
+.search-terms-status-pill.processing{background:#fef3c7;color:#92400e}
+.search-terms-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:16px 0 24px}
+.search-terms-kpis>div{padding:15px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;display:flex;flex-direction:column;gap:8px;min-width:0}
+.search-terms-kpis span{color:#6b7280;font-size:13px}
+.search-terms-kpis strong{font-size:23px;overflow-wrap:anywhere}
+.search-terms-table-tools{display:flex;align-items:end;gap:12px;margin:18px 0}
+.search-terms-table-tools .search-terms-search{flex:2}
+.search-terms-table-tools label{min-width:190px}
+.search-terms-page .search-terms-table{width:100%;overflow:hidden;border:1px solid #e5e7eb;border-radius:12px;background:#fff}
+.search-terms-page .search-terms-row{display:grid;grid-template-columns:minmax(190px,1.5fr) minmax(170px,1.4fr) 70px 95px 110px 100px;gap:12px;align-items:center;padding:13px 14px;border-top:1px solid #e5e7eb;font-size:14px;line-height:1.4}
+.search-terms-page .search-terms-row:first-child{border-top:0}
+.search-terms-page .search-terms-header{background:#f8fafc;color:#4b5563;font-size:12px;font-weight:700}
+.search-terms-page .search-terms-row strong{font-weight:700;color:#111827}
+.search-terms-page .search-terms-row span{overflow-wrap:anywhere;min-width:0}
+@media(max-width:760px){
+ .search-terms-page{margin:0;padding:14px;border:0;border-radius:0}
+ .search-terms-page-header{display:block}
+ .search-terms-period{display:inline-block;margin-top:14px}
+ .search-terms-controls{display:flex;flex-direction:column;align-items:stretch}
+ .search-terms-controls label{min-width:0;width:100%}
+ .search-terms-controls button{width:100%}
+ .search-terms-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .search-terms-kpis>div{padding:12px}
+ .search-terms-kpis strong{font-size:20px}
+ .search-terms-table-tools{display:flex;flex-direction:column;align-items:stretch}
+ .search-terms-table-tools label{min-width:0;width:100%}
+ .search-terms-page .search-terms-table{border:0;overflow:visible;background:transparent}
+ .search-terms-page .search-terms-header{display:none}
+ .search-terms-page .search-terms-row{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:13px;margin:0 0 10px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+ .search-terms-page .search-terms-row strong{grid-column:1/-1;font-size:16px;line-height:1.35;padding-bottom:7px;border-bottom:1px solid #f0f0f0}
+ .search-terms-page .search-terms-row span{display:flex;flex-direction:column;gap:2px;font-size:14px;font-weight:600;overflow-wrap:anywhere}
+ .search-terms-page .search-terms-row span::before{content:attr(data-label);font-size:11px;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:.02em}
+ .search-terms-page .search-terms-row span:nth-child(2){grid-column:1/-1;font-weight:500;color:#374151}
+ .search-terms-page .search-terms-row span:nth-child(2)::before{content:"Kampagne"}
+}
