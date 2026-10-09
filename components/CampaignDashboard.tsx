@@ -479,6 +479,44 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     return sortDirection === "asc" ? av - bv : bv - av;
   });
 
+  if (searchTermsOpen) {
+    return <section className="dashboard search-terms-screen">
+      <button className="filter-btn search-terms-back" onClick={() => setSearchTermsOpen(false)}>← Zurück zu den Kampagnen</button>
+      <section className="search-terms-panel">
+        <h2>Suchbegriffe – letzte 7 Tage</h2>
+        <p>Die echten Suchanfragen, die Kunden bei Amazon eingegeben haben, mit Kampagne und Ergebnissen.</p>
+        <div className="report-actions">
+          <button className="filter-btn" onClick={requestSearchTermsReport} disabled={searchTermsLoading || reportLoading || keywordLoading}>
+            {searchTermsLoading ? "Bitte warten..." : "Neuen 7-Tage-Suchbegriffsreport anfordern"}
+          </button>
+          {searchTermsReportId && searchTermsStatus !== "COMPLETED" && (
+            <button className="filter-btn" onClick={() => checkSearchTermsReport()} disabled={searchTermsLoading}>
+              {searchTermsLoading ? "Prüfe Status..." : "Status prüfen"}
+            </button>
+          )}
+        </div>
+        {searchTermsReportId && <div className="search-terms-status">Reportstatus: <strong>{searchTermsStatus==="COMPLETED"?"Fertig":searchTermsStatus==="PROCESSING"?"Wird verarbeitet":searchTermsStatus==="FAILED"?"Fehlgeschlagen":"Noch nicht angefordert"}</strong></div>}
+        {searchTermsError && <div className="status warn">{searchTermsError}</div>}
+        {searchTermsStatus === "COMPLETED" && searchTermSummary.length === 0 && <div className="keyword-empty">Der Report ist fertig, enthält aber keine Suchbegriffe für diesen Zeitraum.</div>}
+        {searchTermSummary.length > 0 && (
+          <div className="search-terms-table">
+            <div className="search-terms-row search-terms-header">
+              <span>Kundensuchbegriff</span><span>Kampagne</span><span>Klicks</span><span>Kosten</span><span>Bestellungen</span><span>Umsatz</span>
+            </div>
+            {searchTermSummary.map((item:any,i:number)=><div className="search-terms-row" key={item.term+"-"+item.campaign+"-"+i}>
+              <strong>{item.term}</strong>
+              <span data-label="Kampagne">{item.campaign}</span>
+              <span data-label="Klicks">{item.clicks}</span>
+              <span data-label="Kosten">{item.cost.toFixed(2)} €</span>
+              <span data-label="Bestellungen">{item.orders}</span>
+              <span data-label="Umsatz">{item.sales.toFixed(2)} €</span>
+            </div>)}
+          </div>
+        )}
+      </section>
+    </section>;
+  }
+
   return <section className="dashboard">
     <div className="toolbar">
       <div>
@@ -495,37 +533,10 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
     </div>
 
     <div className="search-terms-entry">
-      <button className="filter-btn" onClick={() => setSearchTermsOpen(v=>!v)}>
-        {searchTermsOpen ? "Zurück zu den Kampagnen" : "Suchbegriffe & beste Performance öffnen"}
+      <button className="filter-btn" onClick={() => setSearchTermsOpen(true)}>
+        Suchbegriffe & beste Performance öffnen
       </button>
     </div>
-    {searchTermsOpen && (
-      <section className="search-terms-panel">
-        <h2>Suchbegriffe – letzte 7 Tage</h2>
-        <p>Hier siehst du die tatsächlichen Suchanfragen, die Kunden bei Amazon eingegeben haben, inklusive zugehöriger Kampagne.</p>
-        <div className="report-actions">
-          <button className="filter-btn" onClick={requestSearchTermsReport} disabled={searchTermsLoading || reportLoading || keywordLoading}>
-            {searchTermsLoading ? "Bitte warten..." : "Neuen 7-Tage-Suchbegriffsreport anfordern"}
-          </button>
-          {searchTermsReportId && searchTermsStatus !== "COMPLETED" && (
-            <button className="filter-btn" onClick={()=>checkSearchTermsReport()} disabled={searchTermsLoading}>
-              {searchTermsLoading ? "Prüfe Status..." : "Status prüfen"}
-            </button>
-          )}
-        </div>
-        {searchTermsReportId && <p className="small">Status: <strong>{searchTermsStatus==="COMPLETED"?"Fertig":searchTermsStatus==="PROCESSING"?"Wird verarbeitet":searchTermsStatus==="FAILED"?"Fehlgeschlagen":"Noch nicht angefordert"}</strong></p>}
-        {searchTermsError && <div className="status warn">{searchTermsError}</div>}
-        {searchTermsStatus === "COMPLETED" && searchTermSummary.length === 0 && <div className="keyword-empty">Der Report ist fertig, enthält aber keine Suchbegriffe für diesen Zeitraum.</div>}
-        {searchTermSummary.length > 0 && (
-          <div className="search-terms-table">
-            <div className="search-terms-row search-terms-header"><span>Kundensuchbegriff</span><span>Kampagne</span><span>Klicks</span><span>Kosten</span><span>Bestellungen</span><span>Umsatz</span></div>
-            {searchTermSummary.map((item:any,i:number)=><div className="search-terms-row" key={item.term+"-"+item.campaign+"-"+i}>
-              <strong>{item.term}</strong><span>{item.campaign}</span><span>{item.clicks}</span><span>{item.cost.toFixed(2)} €</span><span>{item.orders}</span><span>{item.sales.toFixed(2)} €</span>
-            </div>)}
-          </div>
-        )}
-      </section>
-    )}
     <div className="filter-row">
     <div className="campaign-filter">
       <span className="filter-label">Kampagnenstatus</span>
