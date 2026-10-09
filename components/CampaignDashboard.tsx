@@ -40,6 +40,12 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   const [keywordHistory,setKeywordHistory] = useState<ReportHistoryItem[]>([]);
   const [selectedPerformanceReport,setSelectedPerformanceReport] = useState("");
   const [selectedKeywordReport,setSelectedKeywordReport] = useState("");
+  const [searchTermsOpen,setSearchTermsOpen] = useState(false);
+  const [searchTermsLoading,setSearchTermsLoading] = useState(false);
+  const [searchTermsError,setSearchTermsError] = useState("");
+  const [searchTermsReportId,setSearchTermsReportId] = useState("");
+  const [searchTermsStatus,setSearchTermsStatus] = useState<"NONE"|"PROCESSING"|"COMPLETED"|"FAILED">("NONE");
+  const [searchTermsRows,setSearchTermsRows] = useState<any[]>([]);
 
   async function loadCampaigns(id=profileId) {
     if (!id) return;
@@ -362,6 +368,90 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
   }
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`amazon-ads-search-terms:v1:${profileId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setSearchTermsReportId(String(parsed.reportId || ""));
+        setSearchTermsStatus(parsed.status || "NONE");
+        setSearchTermsRows(Array.isArray(parsed.rows) ? parsed.rows : []);
+      } else {
+        setSearchTermsReportId("");
+        setSearchTermsStatus("NONE");
+        setSearchTermsRows([]);
+      }
+    } catch {}
+  }, [profileId]);
+
+  function saveSearchTermsState(patch:Record<string,any>) {
+    const next = {
+      reportId: searchTermsReportId,
+      status: searchTermsStatus,
+      rows: searchTermsRows,
+      ...patch
+    };
+    setSearchTermsReportId(next.reportId);
+    setSearchTermsStatus(next.status);
+    setSearchTermsRows(next.rows);
+    try { localStorage.setItem(`amazon-ads-search-terms:v1:${profileId}`, JSON.stringify(next)); } catch {}
+  }
+
+  async function requestSearchTermsReport() {
+    setSearchTermsLoading(true); setSearchTermsError("");
+    try {
+      const res = await fetch("/api/amazon/search-terms/report/create", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({profileId}), cache:"no-store"
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Suchbegriffsreport konnte nicht angefordert werden.");
+      saveSearchTermsState({reportId:String(data.reportId),status:"PROCESSING",rows:[]});
+      await checkSearchTermsReport(String(data.reportId));
+    } catch(e) {
+      setSearchTermsError(e instanceof Error ? e.message : "Unbekannter Fehler.");
+    } finally { setSearchTermsLoading(false); }
+  }
+
+  async function checkSearchTermsReport(id=searchTermsReportId) {
+    if (!id) return;
+    setSearchTermsLoading(true); setSearchTermsError("");
+    try {
+      const res = await fetch(`/api/amazon/report/status?profileId=${encodeURIComponent(profileId)}&reportId=${encodeURIComponent(id)}`, {cache:"no-store"});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Status des Suchbegriffsreports konnte nicht geladen werden.");
+      const status = String(data.status || "PROCESSING").toUpperCase();
+      if (status === "COMPLETED") {
+        saveSearchTermsState({reportId:id,status:"COMPLETED",rows:Array.isArray(data.rows) ? data.rows : []});
+      } else if (["FAILED","FAILURE","ERROR"].includes(status)) {
+        saveSearchTermsState({reportId:id,status:"FAILED"});
+        setSearchTermsError("Amazon konnte den Suchbegriffsreport nicht fertigstellen.");
+      } else {
+        saveSearchTermsState({reportId:id,status:"PROCESSING"});
+        setSearchTermsError("Der Report wird noch verarbeitet. Bitte später erneut den Status prüfen.");
+      }
+    } catch(e) {
+      setSearchTermsError(e instanceof Error ? e.message : "Unbekannter Fehler.");
+    } finally { setSearchTermsLoading(false); }
+  }
+
+  const searchTermSummary = Object.values(searchTermsRows.reduce((acc:Record<string,any>, row:any) => {
+    const term = String(row.searchTerm || "").trim();
+    if (!term) return acc;
+    const campaignId = String(row.campaignId || "");
+    const key = term + "|" + campaignId;
+    if (!acc[key]) acc[key] = {
+      term, campaign: String(row.campaignName || "Ohne Kampagne"),
+      clicks: 0, impressions: 0, cost: 0, orders: 0, sales: 0
+    };
+    acc[key].clicks += Number(row.clicks || 0);
+    acc[key].impressions += Number(row.impressions || 0);
+    acc[key].cost += Number(row.cost || 0);
+    acc[key].orders += Number(row.purchases14d || 0);
+    acc[key].sales += Number(row.sales14d || 0);
+    return acc;
+  }, {})).sort((a:any,b:any) => b.orders-a.orders || b.sales-a.sales || b.clicks-a.clicks);
+
+  useEffect(() => {
     loadHistories();
   }, [profileId]);
 
@@ -404,6 +494,38 @@ export default function CampaignDashboard({profiles}:{profiles:Profile[]}) {
       </button>
     </div>
 
+    <div className="search-terms-entry">
+      <button className="filter-btn" onClick={() => setSearchTermsOpen(v=>!v)}>
+        {searchTermsOpen ? "Zurück zu den Kampagnen" : "Suchbegriffe & beste Performance öffnen"}
+      </button>
+    </div>
+    {searchTermsOpen && (
+      <section className="search-terms-panel">
+        <h2>Suchbegriffe – letzte 7 Tage</h2>
+        <p>Hier siehst du die tatsächlichen Suchanfragen, die Kunden bei Amazon eingegeben haben, inklusive zugehöriger Kampagne.</p>
+        <div className="report-actions">
+          <button className="filter-btn" onClick={requestSearchTermsReport} disabled={searchTermsLoading || reportLoading || keywordLoading}>
+            {searchTermsLoading ? "Bitte warten..." : "Neuen 7-Tage-Suchbegriffsreport anfordern"}
+          </button>
+          {searchTermsReportId && searchTermsStatus !== "COMPLETED" && (
+            <button className="filter-btn" onClick={()=>checkSearchTermsReport()} disabled={searchTermsLoading}>
+              {searchTermsLoading ? "Prüfe Status..." : "Status prüfen"}
+            </button>
+          )}
+        </div>
+        {searchTermsReportId && <p className="small">Status: <strong>{searchTermsStatus==="COMPLETED"?"Fertig":searchTermsStatus==="PROCESSING"?"Wird verarbeitet":searchTermsStatus==="FAILED"?"Fehlgeschlagen":"Noch nicht angefordert"}</strong></p>}
+        {searchTermsError && <div className="status warn">{searchTermsError}</div>}
+        {searchTermsStatus === "COMPLETED" && searchTermSummary.length === 0 && <div className="keyword-empty">Der Report ist fertig, enthält aber keine Suchbegriffe für diesen Zeitraum.</div>}
+        {searchTermSummary.length > 0 && (
+          <div className="search-terms-table">
+            <div className="search-terms-row search-terms-header"><span>Kundensuchbegriff</span><span>Kampagne</span><span>Klicks</span><span>Kosten</span><span>Bestellungen</span><span>Umsatz</span></div>
+            {searchTermSummary.map((item:any,i:number)=><div className="search-terms-row" key={item.term+"-"+item.campaign+"-"+i}>
+              <strong>{item.term}</strong><span>{item.campaign}</span><span>{item.clicks}</span><span>{item.cost.toFixed(2)} €</span><span>{item.orders}</span><span>{item.sales.toFixed(2)} €</span>
+            </div>)}
+          </div>
+        )}
+      </section>
+    )}
     <div className="filter-row">
     <div className="campaign-filter">
       <span className="filter-label">Kampagnenstatus</span>
